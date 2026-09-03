@@ -9,7 +9,8 @@
   "permissions": ["storage", "activeTab", "tabs"],
   "host_permissions": [
     "https://school.mos.ru/*",
-    "https://dnevnik.mos.ru/*"
+    "https://dnevnik.mos.ru/*",
+    "https://uchebnik.mos.ru/*"
   ],
   "background": {
     "service_worker": "background.js",

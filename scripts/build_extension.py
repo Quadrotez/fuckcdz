@@ -56,6 +56,7 @@ def main() -> None:
         *firefox.get("permissions", []),
         "https://school.mos.ru/*",
         "https://dnevnik.mos.ru/*",
+        "https://uchebnik.mos.ru/*",
     ]
     firefox["background"] = {"scripts": ["background.js"]}
     firefox["browser_specific_settings"] = {
