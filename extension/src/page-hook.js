@@ -55,18 +55,27 @@
     }
   }
 
-  function serializeBody(body) {
+  async function serializeBody(body) {
     if (body == null) return null;
     try {
       if (body instanceof FormData) {
-        return Object.fromEntries([...body.entries()].slice(0, 100).map(([key, value]) => [
-          key,
-          value instanceof File ? `[file:${value.name},${value.type},${value.size}]` : redact(value)
-        ]));
+        const entries = [];
+        for (const [key, value] of [...body.entries()].slice(0, 100)) {
+          entries.push([key, value instanceof File ? `[file:${value.name},${value.type},${value.size}]` : redact(value)]);
+        }
+        return Object.fromEntries(entries);
       }
       if (body instanceof URLSearchParams) return redact(Object.fromEntries(body.entries()));
-      if (body instanceof Blob) return `[blob:${body.type},${body.size}]`;
-      if (body instanceof ArrayBuffer) return `[arraybuffer:${body.byteLength}]`;
+      if (body instanceof Blob) {
+        const text = await body.slice(0, MAX_BODY).text();
+        try { return { blobType: body.type, blobSize: body.size, json: redact(JSON.parse(text)) }; }
+        catch { return { blobType: body.type, blobSize: body.size, text: redact(text) }; }
+      }
+      if (body instanceof ArrayBuffer) {
+        const text = new TextDecoder().decode(body.slice(0, MAX_BODY));
+        try { return { arrayBufferSize: body.byteLength, json: redact(JSON.parse(text)) }; }
+        catch { return { arrayBufferSize: body.byteLength, text: redact(text) }; }
+      }
     } catch (error) {
       return { serializeError: String(error?.message || error) };
     }
@@ -93,6 +102,7 @@
         contentType: response.headers.get("content-type") || "",
         durationMs: Math.round(performance.now() - started),
         requestHeaders: headersToObject(init.headers || request?.headers),
+        requestBody: await serializeBody(init.body),
         response: await responseBody(response)
       });
       return response;
@@ -110,7 +120,7 @@
   };
   XMLHttpRequest.prototype.send = function debugSend(body) {
     const request = this.__meshDebug || { method: "GET", url: "" };
-    this.addEventListener("loadend", () => {
+    this.addEventListener("loadend", async () => {
       let response = null;
       try {
         if (this.responseType === "json") response = redact(this.response);
@@ -129,7 +139,7 @@
         contentType: this.getResponseHeader("content-type") || "",
         durationMs: Math.round(performance.now() - (request.started || performance.now())),
         response: response,
-        requestBody: serializeBody(body)
+        requestBody: await serializeBody(body)
       });
     }, { once: true });
     return nativeSend.apply(this, arguments);
