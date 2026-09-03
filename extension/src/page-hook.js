@@ -4,12 +4,12 @@
   const SECRET_KEY = /(authorization|cookie|token|secret|password|passwd|jwt|session|csrf|set-cookie|api[-_]?key)/i;
 
   function redact(value, depth = 0) {
-    if (depth > 5) return "[depth-limit]";
+    if (depth > 20) return "[depth-limit]";
     if (typeof value === "string") {
       if (/^(Bearer\s+)?[A-Za-z0-9._~+/=-]{24,}$/.test(value)) return "[redacted-string]";
       return value.length > MAX_BODY ? `${value.slice(0, MAX_BODY)}…[truncated]` : value;
     }
-    if (Array.isArray(value)) return value.slice(0, 100).map((item) => redact(item, depth + 1));
+    if (Array.isArray(value)) return value.slice(0, 300).map((item) => redact(item, depth + 1));
     if (value && typeof value === "object") {
       return Object.fromEntries(Object.entries(value).slice(0, 200).map(([key, item]) => [
         key,
@@ -53,6 +53,24 @@
     } catch (error) {
       return { readError: String(error?.message || error) };
     }
+  }
+
+  function serializeBody(body) {
+    if (body == null) return null;
+    try {
+      if (body instanceof FormData) {
+        return Object.fromEntries([...body.entries()].slice(0, 100).map(([key, value]) => [
+          key,
+          value instanceof File ? `[file:${value.name},${value.type},${value.size}]` : redact(value)
+        ]));
+      }
+      if (body instanceof URLSearchParams) return redact(Object.fromEntries(body.entries()));
+      if (body instanceof Blob) return `[blob:${body.type},${body.size}]`;
+      if (body instanceof ArrayBuffer) return `[arraybuffer:${body.byteLength}]`;
+    } catch (error) {
+      return { serializeError: String(error?.message || error) };
+    }
+    return redact(body);
   }
 
   function emit(payload) {
@@ -111,7 +129,7 @@
         contentType: this.getResponseHeader("content-type") || "",
         durationMs: Math.round(performance.now() - (request.started || performance.now())),
         response: response,
-        requestBody: redact(body)
+        requestBody: serializeBody(body)
       });
     }, { once: true });
     return nativeSend.apply(this, arguments);
