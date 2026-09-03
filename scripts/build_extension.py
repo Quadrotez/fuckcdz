@@ -46,6 +46,18 @@ def main() -> None:
     chrome["name"] = "МЭШ: все задания (Chromium)"
     firefox = dict(base)
     firefox["name"] = "МЭШ: все задания (Firefox/LibreWolf)"
+    # Некоторые версии LibreWolf отключают MV3 service_worker и принимают
+    # только классический background page из Manifest V2.
+    firefox["manifest_version"] = 2
+    firefox.pop("action", None)
+    firefox["browser_action"] = {"default_title": "Собрать задания МЭШ"}
+    firefox.pop("host_permissions", None)
+    firefox["permissions"] = [
+        *firefox.get("permissions", []),
+        "https://school.mos.ru/*",
+        "https://dnevnik.mos.ru/*",
+    ]
+    firefox["background"] = {"scripts": ["background.js"]}
     firefox["browser_specific_settings"] = {
         "gecko": {
             "id": "mesh-tasks@quadrotez.local",
