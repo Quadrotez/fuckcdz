@@ -22,6 +22,9 @@ FILES = [
     "debug.html",
     "debug.css",
     "debug.js",
+    "exam.html",
+    "exam.css",
+    "exam.js",
 ]
 
 

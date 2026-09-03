@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Все задания теста</title>
+  <link rel="stylesheet" href="exam.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">МЭШ / тест</p>
+      <h1>Все задания теста</h1>
+      <p id="meta" class="muted">Загрузка snapshot…</p>
+    </div>
+    <div class="actions">
+      <button id="refresh">Обновить</button>
+      <button id="debug" class="secondary">Открыть debug-лог</button>
+    </div>
+  </header>
+  <main>
+    <div id="notice" class="notice" hidden></div>
+    <section id="summary" class="summary"></section>
+    <section id="questions" class="questions"></section>
+  </main>
+  <script src="exam.js"></script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 const api = globalThis.browser ?? globalThis.chrome;
 const TASKS_PAGE = "tasks.html";
 const DEBUG_PAGE = "debug.html";
+const EXAM_PAGE = "exam.html";
 const DEBUG_KEY = "debugLog";
 const MAX_DEBUG_EVENTS = 300;
 let debugWriteQueue = Promise.resolve();
@@ -39,12 +40,24 @@ async function openDebug() {
   return openPage(DEBUG_PAGE);
 }
 
+async function openExam() {
+  return openPage(EXAM_PAGE);
+}
+
 function appendDebugEvent(event) {
   debugWriteQueue = debugWriteQueue.then(async () => {
     const result = await api.storage.local.get(DEBUG_KEY);
     const log = result[DEBUG_KEY] || { version: 1, startedAt: new Date().toISOString(), events: [] };
     log.events = [...(log.events || []), { timestamp: new Date().toISOString(), ...event }].slice(-MAX_DEBUG_EVENTS);
-    await api.storage.local.set({ [DEBUG_KEY]: log });
+    const update = { [DEBUG_KEY]: log };
+    if (event.response && /\/challenge\/[^/]+\/start-attempt(?:\?|$)/.test(event.url || "")) {
+      update.latestExam = {
+        capturedAt: new Date().toISOString(),
+        url: event.url,
+        response: event.response,
+      };
+    }
+    await api.storage.local.set(update);
   });
   return debugWriteQueue;
 }
@@ -54,6 +67,11 @@ async function getDebugLog() {
   return result[DEBUG_KEY] || { version: 1, events: [] };
 }
 
+async function getLatestExam() {
+  const result = await api.storage.local.get("latestExam");
+  return result.latestExam || null;
+}
+
 api.runtime.onMessage.addListener(async (message) => {
   if (message?.type === "STORE_TASKS") {
     return api.storage.local.set({ tasks: message.tasks || [], source: message.source || "" });
@@ -61,9 +79,11 @@ api.runtime.onMessage.addListener(async (message) => {
   if (message?.type === "SCAN_ACTIVE_TAB") return scanActiveTab();
   if (message?.type === "OPEN_TASKS") return openTasks();
   if (message?.type === "OPEN_DEBUG") return openDebug();
+  if (message?.type === "OPEN_EXAM") return openExam();
   if (message?.type === "DEBUG_EVENT") return appendDebugEvent(message.event || {});
   if (message?.type === "GET_DEBUG_LOG") return { log: await getDebugLog() };
-  if (message?.type === "CLEAR_DEBUG_LOG") return api.storage.local.remove(DEBUG_KEY);
+  if (message?.type === "GET_LATEST_EXAM") return { exam: await getLatestExam() };
+  if (message?.type === "CLEAR_DEBUG_LOG") return api.storage.local.remove([DEBUG_KEY, "latestExam"]);
   return undefined;
 });
 
