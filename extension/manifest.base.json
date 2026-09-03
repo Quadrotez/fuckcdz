@@ -1,10 +1,11 @@
 {
   "name": "МЭШ: все задания",
   "description": "Собирает задания с открытой страницы МЭШ и показывает их в едином интерфейсе.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "manifest_version": 3,
   "action": {
-    "default_title": "Собрать задания МЭШ"
+    "default_title": "МЭШ: задания и тесты",
+    "default_popup": "popup.html"
   },
   "permissions": ["storage", "activeTab", "tabs"],
   "host_permissions": [

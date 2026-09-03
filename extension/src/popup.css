@@ -1,0 +1,14 @@
+* { box-sizing: border-box; }
+:root { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #18212f; background: #f7f8fb; }
+body { width: 330px; margin: 0; }
+main { padding: 16px; }
+header { padding: 4px 2px 14px; border-bottom: 1px solid #e1e6ef; }
+.brand { color: #315fc1; font-size: 11px; font-weight: 800; letter-spacing: .14em; }
+h1 { margin: 4px 0 5px; font-size: 20px; }
+#status { margin: 0; color: #647185; font-size: 12px; line-height: 1.35; word-break: break-word; }
+.actions { display: grid; gap: 8px; margin-top: 15px; }
+button { width: 100%; border: 0; border-radius: 8px; padding: 10px 12px; cursor: pointer; background: #315fc1; color: #fff; font: 650 13px system-ui; text-align: left; }
+button:hover { filter: brightness(.94); }
+button:disabled { cursor: not-allowed; opacity: .45; }
+button.danger { background: #fff; border: 1px solid #d8a7a7; color: #a03333; }
+.hint { min-height: 16px; margin: 13px 2px 0; color: #68758a; font-size: 11px; line-height: 1.35; }

@@ -40,8 +40,8 @@ async function openDebug() {
   return openPage(DEBUG_PAGE);
 }
 
-async function openExam() {
-  return openPage(EXAM_PAGE);
+async function openExam(print = false) {
+  return openPage(print ? `${EXAM_PAGE}?print=1` : EXAM_PAGE);
 }
 
 function appendDebugEvent(event) {
@@ -80,6 +80,7 @@ api.runtime.onMessage.addListener(async (message) => {
   if (message?.type === "OPEN_TASKS") return openTasks();
   if (message?.type === "OPEN_DEBUG") return openDebug();
   if (message?.type === "OPEN_EXAM") return openExam();
+  if (message?.type === "OPEN_EXAM_PRINT") return openExam(true);
   if (message?.type === "DEBUG_EVENT") return appendDebugEvent(message.event || {});
   if (message?.type === "GET_DEBUG_LOG") return { log: await getDebugLog() };
   if (message?.type === "GET_LATEST_EXAM") return { exam: await getLatestExam() };
@@ -87,7 +88,10 @@ api.runtime.onMessage.addListener(async (message) => {
   return undefined;
 });
 
-api.action.onClicked.addListener(async () => {
-  const result = await scanActiveTab();
-  if (!result?.error) await openTasks();
-});
+const actionEvents = api.action ?? api.browserAction;
+if (actionEvents?.onClicked) {
+  actionEvents.onClicked.addListener(async () => {
+    const result = await scanActiveTab();
+    if (!result?.error) await openTasks();
+  });
+}

@@ -25,6 +25,9 @@ FILES = [
     "exam.html",
     "exam.css",
     "exam.js",
+    "popup.html",
+    "popup.css",
+    "popup.js",
 ]
 
 
@@ -58,7 +61,10 @@ def main() -> None:
     # только классический background page из Manifest V2.
     firefox["manifest_version"] = 2
     firefox.pop("action", None)
-    firefox["browser_action"] = {"default_title": "Собрать задания МЭШ"}
+    firefox["browser_action"] = {
+        "default_title": "МЭШ: задания и тесты",
+        "default_popup": "popup.html",
+    }
     firefox.pop("host_permissions", None)
     firefox["permissions"] = [
         *firefox.get("permissions", []),
