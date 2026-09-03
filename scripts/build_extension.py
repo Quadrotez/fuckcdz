@@ -17,6 +17,11 @@ FILES = [
     "tasks.css",
     "tasks.js",
     "options.html",
+    "debug-content.js",
+    "page-hook.js",
+    "debug.html",
+    "debug.css",
+    "debug.js",
 ]
 
 
@@ -59,6 +64,7 @@ def main() -> None:
         "https://uchebnik.mos.ru/*",
     ]
     firefox["background"] = {"scripts": ["background.js"]}
+    firefox["web_accessible_resources"] = ["page-hook.js"]
     firefox["browser_specific_settings"] = {
         "gecko": {
             "id": "mesh-tasks@quadrotez.local",

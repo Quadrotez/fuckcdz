@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Debug МЭШ</title>
+  <link rel="stylesheet" href="debug.css">
+</head>
+<body>
+  <main>
+    <h1>Диагностика теста МЭШ</h1>
+    <p class="warning">Лог хранится только локально. Перед отправкой всё равно проверь файл вручную и удали лишние персональные данные.</p>
+    <div class="actions">
+      <button id="download">Скачать JSON</button>
+      <button id="copy">Скопировать JSON</button>
+      <button id="clear" class="secondary">Очистить лог</button>
+    </div>
+    <p id="summary"></p>
+    <pre id="preview">Загрузка…</pre>
+  </main>
+  <script src="debug.js"></script>
+</body>
+</html>

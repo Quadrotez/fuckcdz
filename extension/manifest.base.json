@@ -1,7 +1,7 @@
 {
   "name": "МЭШ: все задания",
   "description": "Собирает задания с открытой страницы МЭШ и показывает их в едином интерфейсе.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "manifest_version": 3,
   "action": {
     "default_title": "Собрать задания МЭШ"
@@ -24,6 +24,17 @@
       ],
       "js": ["content.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://uchebnik.mos.ru/*"],
+      "js": ["debug-content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["page-hook.js"],
+      "matches": ["https://uchebnik.mos.ru/*"]
     }
   ],
   "options_page": "options.html"
