@@ -61,7 +61,13 @@
       if (body instanceof FormData) {
         const entries = [];
         for (const [key, value] of [...body.entries()].slice(0, 100)) {
-          entries.push([key, value instanceof File ? `[file:${value.name},${value.type},${value.size}]` : redact(value)]);
+          if (value instanceof Blob) {
+            const text = await value.slice(0, MAX_BODY).text();
+            let payload;
+            try { payload = redact(JSON.parse(text)); }
+            catch { payload = redact(text); }
+            entries.push([key, { fileName: value instanceof File ? value.name : "", blobType: value.type, blobSize: value.size, json: payload }]);
+          } else entries.push([key, redact(value)]);
         }
         return Object.fromEntries(entries);
       }
