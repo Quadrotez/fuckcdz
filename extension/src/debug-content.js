@@ -22,12 +22,12 @@
   });
 
   api.runtime.onMessage.addListener((message) => {
-    if (message?.type !== "SUBMIT_ANSWER") return undefined;
+    if (message?.type !== "SUBMIT_ANSWER" && message?.type !== "COMPLETE_ATTEMPT") return undefined;
     const requestId = crypto.randomUUID();
     return new Promise((resolve) => {
       const timer = setTimeout(() => { pending.delete(requestId); resolve({ ok: false, error: "Истекло время ожидания ответа МЭШ" }); }, 15000);
       pending.set(requestId, (result) => { clearTimeout(timer); resolve(result); });
-      window.postMessage({ source: CHANNEL, type: "command", command: "submit-answer", requestId, payload: message.payload }, location.origin);
+      window.postMessage({ source: CHANNEL, type: "command", command: message.type === "COMPLETE_ATTEMPT" ? "complete-attempt" : "submit-answer", requestId, payload: message.payload }, location.origin);
     });
   });
 

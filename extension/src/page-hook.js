@@ -97,17 +97,27 @@
     try {
       const body = new FormData();
       body.append("request", new Blob([JSON.stringify(payload)], { type: "application/json" }), "blob");
-      const response = await nativeFetch("/webtests/exam/rest/secure/challenge/task/answer", { method: "POST", body, credentials: "include" });
+      const headers = { ...latestAnswerHeaders };
+      delete headers["content-type"]; delete headers["content-length"];
+      const response = await nativeFetch("/webtests/exam/rest/secure/challenge/task/answer", { method: "POST", body, credentials: "include", headers });
       window.postMessage({ source: CHANNEL, type: "command-result", requestId, result: { ok: response.ok, status: response.status, durationMs: Math.round(performance.now() - started) } }, location.origin);
     } catch (error) {
       window.postMessage({ source: CHANNEL, type: "command-result", requestId, result: { ok: false, error: String(error?.message || error) } }, location.origin);
     }
   }
 
+  async function completeAttempt(requestId, challengeId) {
+    try {
+      const response = await nativeFetch(`/webtests/exam/rest/secure/challenge/${encodeURIComponent(challengeId)}/complete_attempt`, { method: "POST", credentials: "include", headers: { ...latestAnswerHeaders, "content-type": "application/json" }, body: JSON.stringify({ challenge_id: Number(challengeId) }) });
+      window.postMessage({ source: CHANNEL, type: "command-result", requestId, result: { ok: response.ok, status: response.status } }, location.origin);
+    } catch (error) { window.postMessage({ source: CHANNEL, type: "command-result", requestId, result: { ok: false, error: String(error?.message || error) } }, location.origin); }
+  }
+
   window.addEventListener("message", (event) => {
     if (event.source !== window || event.origin !== location.origin) return;
     if (event.data?.source !== CHANNEL || event.data?.type !== "command") return;
     if (event.data.command === "submit-answer" && event.data.payload && event.data.requestId) submitAnswer(event.data.requestId, event.data.payload);
+    if (event.data.command === "complete-attempt" && event.data.payload?.challenge_id && event.data.requestId) completeAttempt(event.data.requestId, event.data.payload.challenge_id);
   });
 
   const nativeFetch = window.fetch;
@@ -136,11 +146,17 @@
     }
   };
 
+  let latestAnswerHeaders = {};
   const nativeOpen = XMLHttpRequest.prototype.open;
   const nativeSend = XMLHttpRequest.prototype.send;
+  const nativeSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
   XMLHttpRequest.prototype.open = function debugOpen(method, url) {
-    this.__meshDebug = { method, url: String(url), started: performance.now() };
+    this.__meshDebug = { method, url: String(url), started: performance.now(), headers: {} };
     return nativeOpen.apply(this, arguments);
+  };
+  XMLHttpRequest.prototype.setRequestHeader = function debugSetRequestHeader(name, value) {
+    if (this.__meshDebug) this.__meshDebug.headers[String(name).toLowerCase()] = String(value);
+    return nativeSetRequestHeader.apply(this, arguments);
   };
   XMLHttpRequest.prototype.send = function debugSend(body) {
     const request = this.__meshDebug || { method: "GET", url: "" };
@@ -155,6 +171,7 @@
       } catch (error) {
         response = { readError: String(error?.message || error) };
       }
+      if (request.url.includes("/webtests/exam/rest/secure/") && this.status >= 200 && this.status < 300) latestAnswerHeaders = { ...request.headers };
       emit({
         kind: "xhr",
         method: request.method,

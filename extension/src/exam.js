@@ -248,6 +248,15 @@ async function load() {
 document.querySelector("#refresh").addEventListener("click", () => load());
 document.querySelector("#debug").addEventListener("click", () => api.runtime.sendMessage({ type: "OPEN_DEBUG" }));
 document.querySelector("#print").addEventListener("click", () => window.print());
+document.querySelector("#finish").addEventListener("click", async () => {
+  const challengeId = String(state.snapshot?.url || "").match(/challenge\/(\d+)/)?.[1];
+  if (!challengeId) { alert("Не найден ID теста. Открой попытку заново."); return; }
+  if (!window.confirm("Ответы уже отправлены? После подтверждения попытка будет завершена официально.")) return;
+  const button = document.querySelector("#finish"); button.disabled = true; button.textContent = "Завершаю…";
+  const result = await api.runtime.sendMessage({ type: "COMPLETE_EXAM_ATTEMPT", payload: { challenge_id: challengeId } });
+  button.disabled = false; button.textContent = result?.ok ? "Тестирование завершено" : "Подтвердить и завершить тестирование";
+  if (!result?.ok) alert(`Не удалось завершить тест: ${result?.error || `HTTP ${result?.status || "неизвестно"}`}`);
+});
 document.querySelector("#copy").addEventListener("click", async () => { const text = [...document.querySelectorAll(".question")].map((node) => node.innerText).join("\n\n"); await navigator.clipboard.writeText(text); document.querySelector("#copy").textContent = "Скопировано"; setTimeout(() => { document.querySelector("#copy").textContent = "Копировать текст"; }, 1500); });
 load().then(() => {
   if (new URLSearchParams(location.search).get("print") === "1") setTimeout(() => window.print(), 350);

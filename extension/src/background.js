@@ -26,7 +26,7 @@ async function submitAnswer(payload) {
   const latest = await getLatestExam();
   const tabId = Number(payload?.sourceTabId || latest?.sourceTabId);
   if (!tabId) return { ok: false, error: "Не найдена исходная вкладка теста. Открой тест заново и обнови snapshot." };
-  try { return await api.tabs.sendMessage(tabId, { type: "SUBMIT_ANSWER", payload }); }
+  try { return await api.tabs.sendMessage(tabId, { type: payload?.__complete ? "COMPLETE_ATTEMPT" : "SUBMIT_ANSWER", payload }); }
   catch { return { ok: false, error: "Не удалось связаться с исходной страницей теста. Открой её заново после установки расширения." }; }
 }
 
@@ -91,6 +91,7 @@ api.runtime.onMessage.addListener(async (message, sender) => {
   if (message?.type === "OPEN_EXAM") return openExam();
   if (message?.type === "OPEN_EXAM_PRINT") return openExam(true);
   if (message?.type === "SUBMIT_EXAM_ANSWER") return submitAnswer(message.payload);
+  if (message?.type === "COMPLETE_EXAM_ATTEMPT") return submitAnswer({ ...message.payload, __complete: true });
   if (message?.type === "DEBUG_EVENT") return appendDebugEvent(message.event || {}, sender?.tab?.id || null);
   if (message?.type === "GET_DEBUG_LOG") return { log: await getDebugLog() };
   if (message?.type === "GET_LATEST_EXAM") return { exam: await getLatestExam() };
