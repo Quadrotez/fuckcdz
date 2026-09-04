@@ -57,5 +57,11 @@ table { width: 100%; border-collapse: collapse; }
 th, td { min-width: 110px; padding: 9px; border: 1px solid #cbd5e3; text-align: left; vertical-align: top; }
 th { background: #eef3ff; }
 .unsupported { color: #8a4b15; }
+.submit-footer { display: flex; align-items: center; gap: 10px; margin-top: 16px; padding-top: 12px; border-top: 1px solid #e3e8f0; }
+.submit-answer { padding: 9px 14px; border: 0; border-radius: 7px; background: #315fc1; color: #fff; cursor: pointer; font: inherit; }
+.submit-answer:disabled { opacity: .6; cursor: wait; }
+.submit-status { color: #667085; font-size: 13px; }
+.submit-status.success { color: #18794e; }
+.submit-status.error { color: #b42318; }
 @media (max-width: 700px) { .topbar { flex-direction: column; } .actions { justify-content: flex-start; } .match-row, .group-row { grid-template-columns: 1fr; } .question { padding: 15px; } }
-@media print { :root { background: #fff; } .topbar { padding: 0 0 14px; background: #fff; color: #000; } .actions, .notice, .instruction, .answer-area input, .answer-area select, .option-bank, .order-controls, .summary { display: none !important; } .muted { color: #333; } main { width: 100%; margin: 0; } .questions { display: block; } .question { margin: 0 0 16px; padding: 12px 0; border: 0; box-shadow: none; break-inside: avoid; page-break-inside: avoid; } .question-head { break-after: avoid; page-break-after: avoid; } .media-box img, .media-box video { max-height: 360px; } .choice { border-color: #cbd5e3; } .chip { border-color: #555; background: #fff; color: #000; } }
+@media print { :root { background: #fff; } .topbar { padding: 0 0 14px; background: #fff; color: #000; } .actions, .notice, .instruction, .answer-area input, .answer-area select, .option-bank, .order-controls, .summary, .submit-footer { display: none !important; } .muted { color: #333; } main { width: 100%; margin: 0; } .questions { display: block; } .question { margin: 0 0 16px; padding: 12px 0; border: 0; box-shadow: none; break-inside: avoid; page-break-inside: avoid; } .question-head { break-after: avoid; page-break-after: avoid; } .media-box img, .media-box video { max-height: 360px; } .choice { border-color: #cbd5e3; } .chip { border-color: #555; background: #fff; color: #000; } }

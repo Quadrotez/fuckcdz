@@ -208,11 +208,29 @@ function renderAnswer(container, task) {
   else if (type === "answer/gap/match/text") renderGap(container, task);
   else { const note = document.createElement("p"); note.className = "unsupported"; note.textContent = `Тип ${type} пока отображается в режиме просмотра.`; container.append(note); renderSimpleOptions(container, task, false); }
 }
+function buildSubmitPayload(task) {
+  const type = task.answer?.type;
+  const value = state.answers[task.id];
+  if (type === "answer/single") return value ? { "@answer_type": type, id: value } : null;
+  if (type === "answer/free" || type === "answer/string") return value != null && String(value).trim() ? { "@answer_type": type, string: String(value) } : null;
+  if (type === "answer/number") return value != null && String(value).trim() ? { "@answer_type": type, number: Number(value) } : null;
+  return null;
+}
+async function submitTask(task, button, status) {
+  const answer = buildSubmitPayload(task);
+  if (!answer) { status.textContent = "Для этого типа ответа отправка пока не подключена или поле пустое."; return; }
+  button.disabled = true; status.textContent = "Отправляю…";
+  const result = await api.runtime.sendMessage({ type: "SUBMIT_EXAM_ANSWER", payload: { challenge_task_id: task.id, challenge_attempt_id: state.snapshot.response.challenge_attempt_id, answer } });
+  button.disabled = false;
+  status.textContent = result?.ok ? `Отправлено (${result.status})` : `Ошибка: ${result?.error || `HTTP ${result?.status || "неизвестно"}`}`;
+  status.className = `submit-status ${result?.ok ? "success" : "error"}`;
+}
 function renderTask(task, index) {
   const card = document.createElement("article"); card.className = "question"; card.id = `task-${task.id}`;
   const head = document.createElement("div"); head.className = "question-head"; const title = document.createElement("h2"); title.textContent = `Задание ${index + 1}`; const type = document.createElement("span"); type.className = "type-pill"; type.textContent = task.answer?.type || "неизвестный тип"; head.append(title, type); card.append(head);
   const question = document.createElement("div"); renderQuestion(question, task.question_elements); card.append(question);
-  const answer = document.createElement("section"); answer.className = "answer-area"; renderAnswer(answer, task); card.append(answer);
+  const answer = document.createElement("section"); answer.className = "answer-area"; renderAnswer(answer, task);
+  const footer = document.createElement("div"); footer.className = "submit-footer"; const button = document.createElement("button"); button.type = "button"; button.className = "primary submit-answer"; button.textContent = "Отправить ответ"; const status = document.createElement("span"); status.className = "submit-status"; button.addEventListener("click", () => submitTask(task, button, status).catch((error) => { button.disabled = false; status.className = "submit-status error"; status.textContent = String(error?.message || error); })); footer.append(button, status); answer.append(footer); card.append(answer);
   return card;
 }
 function getTasks(snapshot) { return (snapshot?.response?.challenge_test_groups || []).flatMap((group) => group.challenge_tasks || []).filter((task) => task && typeof task === "object").sort((a, b) => (a.task_order ?? 0) - (b.task_order ?? 0)); }

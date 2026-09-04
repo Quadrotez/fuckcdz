@@ -22,6 +22,14 @@ async function scanActiveTab() {
   }
 }
 
+async function submitAnswer(payload) {
+  const latest = await getLatestExam();
+  const tabId = Number(payload?.sourceTabId || latest?.sourceTabId);
+  if (!tabId) return { ok: false, error: "Не найдена исходная вкладка теста. Открой тест заново и обнови snapshot." };
+  try { return await api.tabs.sendMessage(tabId, { type: "SUBMIT_ANSWER", payload }); }
+  catch { return { ok: false, error: "Не удалось связаться с исходной страницей теста. Открой её заново после установки расширения." }; }
+}
+
 async function openPage(page) {
   const url = api.runtime.getURL(page);
   const tabs = await api.tabs.query({ url });
@@ -44,7 +52,7 @@ async function openExam(print = false) {
   return openPage(print ? `${EXAM_PAGE}?print=1` : EXAM_PAGE);
 }
 
-function appendDebugEvent(event) {
+function appendDebugEvent(event, sourceTabId = null) {
   debugWriteQueue = debugWriteQueue.then(async () => {
     const result = await api.storage.local.get(DEBUG_KEY);
     const log = result[DEBUG_KEY] || { version: 1, startedAt: new Date().toISOString(), events: [] };
@@ -53,6 +61,7 @@ function appendDebugEvent(event) {
     if (event.response && /\/challenge\/[^/]+\/start-attempt(?:\?|$)/.test(event.url || "")) {
       update.latestExam = {
         capturedAt: new Date().toISOString(),
+        sourceTabId,
         url: event.url,
         response: event.response,
       };
@@ -72,7 +81,7 @@ async function getLatestExam() {
   return result.latestExam || null;
 }
 
-api.runtime.onMessage.addListener(async (message) => {
+api.runtime.onMessage.addListener(async (message, sender) => {
   if (message?.type === "STORE_TASKS") {
     return api.storage.local.set({ tasks: message.tasks || [], source: message.source || "" });
   }
@@ -81,7 +90,8 @@ api.runtime.onMessage.addListener(async (message) => {
   if (message?.type === "OPEN_DEBUG") return openDebug();
   if (message?.type === "OPEN_EXAM") return openExam();
   if (message?.type === "OPEN_EXAM_PRINT") return openExam(true);
-  if (message?.type === "DEBUG_EVENT") return appendDebugEvent(message.event || {});
+  if (message?.type === "SUBMIT_EXAM_ANSWER") return submitAnswer(message.payload);
+  if (message?.type === "DEBUG_EVENT") return appendDebugEvent(message.event || {}, sender?.tab?.id || null);
   if (message?.type === "GET_DEBUG_LOG") return { log: await getDebugLog() };
   if (message?.type === "GET_LATEST_EXAM") return { exam: await getLatestExam() };
   if (message?.type === "CLEAR_DEBUG_LOG") return api.storage.local.remove([DEBUG_KEY, "latestExam"]);

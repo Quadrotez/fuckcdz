@@ -92,6 +92,24 @@
     window.postMessage({ source: CHANNEL, type: "event", payload }, location.origin);
   }
 
+  async function submitAnswer(requestId, payload) {
+    const started = performance.now();
+    try {
+      const body = new FormData();
+      body.append("request", new Blob([JSON.stringify(payload)], { type: "application/json" }), "blob");
+      const response = await nativeFetch("/webtests/exam/rest/secure/challenge/task/answer", { method: "POST", body, credentials: "include" });
+      window.postMessage({ source: CHANNEL, type: "command-result", requestId, result: { ok: response.ok, status: response.status, durationMs: Math.round(performance.now() - started) } }, location.origin);
+    } catch (error) {
+      window.postMessage({ source: CHANNEL, type: "command-result", requestId, result: { ok: false, error: String(error?.message || error) } }, location.origin);
+    }
+  }
+
+  window.addEventListener("message", (event) => {
+    if (event.source !== window || event.origin !== location.origin) return;
+    if (event.data?.source !== CHANNEL || event.data?.type !== "command") return;
+    if (event.data.command === "submit-answer" && event.data.payload && event.data.requestId) submitAnswer(event.data.requestId, event.data.payload);
+  });
+
   const nativeFetch = window.fetch;
   window.fetch = async function debugFetch(input, init = {}) {
     const request = input instanceof Request ? input : null;
