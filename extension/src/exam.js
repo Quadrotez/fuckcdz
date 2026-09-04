@@ -236,6 +236,32 @@ function renderTask(task, index) {
 function getTasks(snapshot) { return (snapshot?.response?.challenge_test_groups || []).flatMap((group) => group.challenge_tasks || []).filter((task) => task && typeof task === "object").sort((a, b) => (a.task_order ?? 0) - (b.task_order ?? 0)); }
 function persistAnswers() { if (!state.snapshot?.response?.challenge_attempt_id) return; const all = JSON.parse(localStorage.getItem(ANSWERS_KEY) || "{}"); all[state.snapshot.response.challenge_attempt_id] = state.answers; localStorage.setItem(ANSWERS_KEY, JSON.stringify(all)); }
 function restoreAnswers() { const id = state.snapshot?.response?.challenge_attempt_id; if (!id) return {}; const all = JSON.parse(localStorage.getItem(ANSWERS_KEY) || "{}"); return all[id] || {}; }
+function withoutAnswerKeys(value) {
+  if (Array.isArray(value)) return value.map(withoutAnswerKeys);
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).filter(([key]) => !["right_answer", "reference_right_answer", "user_answer"].includes(key)).map(([key, item]) => [key, withoutAnswerKeys(item)]));
+  return value;
+}
+function exportPayload() {
+  const response = state.snapshot?.response || {};
+  const tasks = getTasks(state.snapshot).map((task) => ({ id: task.id, order: task.task_order ?? 0, type: task.answer?.type || "unknown", question_elements: withoutAnswerKeys(task.question_elements || []), answer: withoutAnswerKeys(task.answer || {}) }));
+  return { schema: "mesh-tasks/test-export", version: 1, exported_at: new Date().toISOString(), source: { url: state.snapshot?.url || "", challenge_id: String(state.snapshot?.url || "").match(/challenge\/(\d+)/)?.[1] || null, attempt_id: response.challenge_attempt_id ?? null }, tasks, answers: state.answers || {} };
+}
+function downloadJson(filename, value) {
+  const blob = new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = filename; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+async function importAnswers(file) {
+  const data = JSON.parse(await file.text());
+  if (!data || typeof data !== "object") throw new Error("JSON должен быть объектом.");
+  if (data.schema && data.schema !== "mesh-tasks/test-export") throw new Error("Неизвестная схема JSON.");
+  const expected = String(state.snapshot?.response?.challenge_attempt_id ?? ""); const importedAttempt = String(data.source?.attempt_id ?? data.attempt_id ?? expected);
+  if (importedAttempt && expected && importedAttempt !== expected) throw new Error(`Ответы относятся к попытке ${importedAttempt}, а открыта попытка ${expected}.`);
+  const imported = data.answers && typeof data.answers === "object" ? data.answers : data;
+  const known = new Set(getTasks(state.snapshot).map((task) => String(task.id)));
+  const next = {};
+  for (const [taskId, answer] of Object.entries(imported)) { if (!known.has(String(taskId))) continue; next[taskId] = answer; }
+  if (!Object.keys(next).length) throw new Error("В JSON не найдено ответов для заданий текущей попытки.");
+  state.answers = next; persistAnswers(); await load();
+}
 async function load() {
   const result = await api.runtime.sendMessage({ type: "GET_LATEST_EXAM" }); state.snapshot = result?.exam; state.answers = restoreAnswers();
   const notice = document.querySelector("#notice"); const container = document.querySelector("#questions"); container.replaceChildren(); notice.hidden = true;
@@ -258,6 +284,9 @@ document.querySelector("#finish").addEventListener("click", async () => {
   if (!result?.ok) alert(`Не удалось завершить тест: ${result?.error || `HTTP ${result?.status || "неизвестно"}`}`);
 });
 document.querySelector("#copy").addEventListener("click", async () => { const text = [...document.querySelectorAll(".question")].map((node) => node.innerText).join("\n\n"); await navigator.clipboard.writeText(text); document.querySelector("#copy").textContent = "Скопировано"; setTimeout(() => { document.querySelector("#copy").textContent = "Копировать текст"; }, 1500); });
+document.querySelector("#export").addEventListener("click", () => { if (!state.snapshot?.response) return alert("Сначала открой тест и начни попытку."); const challenge = String(state.snapshot.url || "").match(/challenge\/(\d+)/)?.[1] || "test"; downloadJson(`mesh-test-${challenge}.json`, exportPayload()); });
+document.querySelector("#import").addEventListener("click", () => document.querySelector("#import-file").click());
+document.querySelector("#import-file").addEventListener("change", async (event) => { const file = event.target.files?.[0]; event.target.value = ""; if (!file) return; try { await importAnswers(file); alert("Ответы импортированы и сохранены локально."); } catch (error) { alert(`Не удалось импортировать ответы: ${error?.message || error}`); } });
 load().then(() => {
   if (new URLSearchParams(location.search).get("print") === "1") setTimeout(() => window.print(), 350);
 }).catch((error) => { const notice = document.querySelector("#notice"); notice.hidden = false; notice.textContent = String(error?.message || error); });
