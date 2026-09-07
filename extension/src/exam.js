@@ -195,9 +195,28 @@ function renderGap(container, task) {
   const bank = document.createElement("div"); bank.className = "option-bank"; options.forEach((option, index) => { const chip = document.createElement("span"); chip.className = "chip"; chip.textContent = optionLabel(option); chip.title = "Выберите этот вариант в поле выше"; chip.draggable = true; chip.addEventListener("dragstart", (event) => { event.dataTransfer.setData("text/plain", String(option.id ?? index)); }); bank.append(chip); }); container.append(bank);
 }
 function renderGapTextInput(container, task) {
-  const answer = task.answer || {}; const element = (task.question_elements || []).find((item) => typeof item?.text === "string" && item.text.length > 30) || task.question_elements?.[0]; const source = element?.text || ""; const positions = [...(answer.text_position || [])].map((item, index) => ({ ...item, index })).sort((a, b) => a.position - b.position); const values = state.answers[task.id] || {}; const body = document.createElement("div"); body.className = "gap-text"; let cursor = 0;
-  positions.forEach((position) => { body.append(textNode(source.slice(cursor, position.position))); const input = document.createElement("input"); input.type = "text"; input.className = "gap-input"; input.placeholder = "введите ответ"; input.maxLength = Number(answer.expected_length || 0) || 100; input.value = values[position.index] || ""; input.addEventListener("input", () => { const next = state.answers[task.id] || {}; next[position.index] = input.value; state.answers[task.id] = next; persistAnswers(); }); body.append(input); cursor = position.position; });
-  body.append(textNode(source.slice(cursor))); container.append(body); const note = document.createElement("p"); note.className = "muted"; note.textContent = `Полей для ввода: ${positions.length}. Ограничение длины: ${answer.text_input_rules === "nolimits" ? "нет" : answer.expected_length || "по условию"}.`; container.append(note);
+  const answer = task.answer || {};
+  const elements = Array.isArray(task.question_elements) ? task.question_elements : [];
+  // У этого типа первое длинное поле — обычное условие, а пропуски принадлежат code/text element.
+  const element = elements.find((item) => typeof item?.text === "string" && item.text.includes("\n") && item.type !== "content/text")
+    || elements.find((item) => typeof item?.text === "string" && item.text.includes("\n"))
+    || elements.find((item) => typeof item?.text === "string" && item.type !== "content/text")
+    || elements.find((item) => typeof item?.text === "string");
+  const source = element?.text || "";
+  const positions = [...(answer.text_position || [])].map((item, index) => ({ ...item, index })).sort((a, b) => a.position - b.position);
+  const values = state.answers[task.id] || {};
+  const body = document.createElement("div"); body.className = "gap-text gap-code";
+  let cursor = 0;
+  positions.forEach((position) => {
+    body.append(textNode(source.slice(cursor, position.position)));
+    const input = document.createElement("input"); input.type = "text"; input.className = "gap-input"; input.placeholder = "введите ответ";
+    // expected_length в API МЭШ не является ограничением длины поля для этого типа.
+    input.value = values[position.index] || "";
+    input.addEventListener("input", () => { const next = state.answers[task.id] || {}; next[position.index] = input.value; state.answers[task.id] = next; persistAnswers(); });
+    body.append(input); cursor = position.position;
+  });
+  body.append(textNode(source.slice(cursor))); container.append(body);
+  const note = document.createElement("p"); note.className = "muted"; note.textContent = `Полей для ввода: ${positions.length}. Ограничение длины: ${answer.text_input_rules === "nolimits" ? "нет" : "не задано API"}.`; container.append(note);
 }
 function renderAnswer(container, task) {
   const type = task.answer?.type || "unknown"; const help = document.createElement("p"); help.className = "instruction"; help.textContent = TYPE_HELP[type] || "Заполните ответ в соответствии с условием задания."; container.append(help);

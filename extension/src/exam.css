@@ -50,6 +50,8 @@ select { min-width: 0; padding: 9px; border: 1px solid #c4cedd; border-radius: 7
 .group-rows { display: grid; gap: 8px; }
 .group-row { display: grid; grid-template-columns: minmax(0, 1fr) 190px; align-items: center; gap: 12px; padding: 10px; border: 1px solid #dfe5ee; border-radius: 8px; background: #fafbfe; line-height: 1.4; }
 .gap-text { line-height: 2.5; white-space: pre-wrap; }
+.gap-code { padding: 13px 14px; border: 1px solid #dfe5ee; border-radius: 9px; background: #fafbfe; color: #18212f; font: 15px/1.9 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.gap-code .gap-input { width: 150px; max-width: min(30vw, 240px); vertical-align: baseline; font: inherit; }
 .gap-input { min-width: 120px; max-width: 180px; margin: 0 4px; padding: 5px 7px; border: 1px solid #91a4c1; border-radius: 6px; font: inherit; }
 .gap-slot { min-width: 100px; margin: 0 4px; padding: 4px; vertical-align: baseline; font-size: .9em; }
 .option-bank { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; padding: 10px; border: 1px dashed #bdc9dc; border-radius: 8px; background: #fbfcff; }
