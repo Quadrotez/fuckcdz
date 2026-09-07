@@ -3,10 +3,16 @@
   const MAX_BODY = 12000;
   const SECRET_KEY = /(authorization|cookie|token|secret|password|passwd|jwt|session|csrf|set-cookie|api[-_]?key)/i;
 
+  function isToken(value) {
+    return /^eyJ[A-Za-z0-9_-]*\.eyJ[A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]+)?$/.test(value)
+      || /^Bearer\s+[A-Za-z0-9._~+/=_-]{16,}$/.test(value)
+      || /^[A-Za-z0-9._~+-]{40,}$/.test(value);
+  }
+
   function redact(value, depth = 0) {
     if (depth > 20) return "[depth-limit]";
     if (typeof value === "string") {
-      if (/^(Bearer\s+)?[A-Za-z0-9._~+/=-]{24,}$/.test(value)) return "[redacted-string]";
+      if (isToken(value)) return "[redacted-string]";
       return value.length > MAX_BODY ? `${value.slice(0, MAX_BODY)}…[truncated]` : value;
     }
     if (Array.isArray(value)) return value.slice(0, 300).map((item) => redact(item, depth + 1));

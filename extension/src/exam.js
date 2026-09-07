@@ -188,11 +188,13 @@ function renderTableAnswer(container, task) {
   if (tableOption) { const content = tableOption.content.find((item) => item.type === "content/table"); container.append(renderTableValue(content.table)); }
   if (options.length) renderSimpleOptions(container, { ...task, answer: { ...answer, options } }, false);
 }
+function gapBankOptions(position) { return position?.options && position.options.length ? position.options : null; }
 function renderGap(container, task) {
-  const answer = task.answer || {}; const options = answer.options || []; const element = (task.question_elements || []).find((item) => typeof item?.text === "string" && item.text.length > 100) || task.question_elements?.[0]; const source = element?.text || ""; const positions = [...(answer.text_position || [])].map((item, index) => ({ ...item, index })).sort((a, b) => a.position - b.position); const body = document.createElement("div"); body.className = "gap-text"; let cursor = 0;
-  positions.forEach((position) => { body.append(textNode(source.slice(cursor, position.position))); const select = document.createElement("select"); select.className = "gap-slot"; select.dataset.slot = position.index; select.innerHTML = `<option value="">выберите</option>`; options.forEach((option, optionIndex) => { const item = document.createElement("option"); item.value = String(option.id ?? optionIndex); item.textContent = optionLabel(option); select.append(item); }); const current = state.answers[task.id]?.[position.index]; if (current) select.value = current; select.addEventListener("change", () => { const values = state.answers[task.id] || {}; values[position.index] = select.value; state.answers[task.id] = values; persistAnswers(); }); body.append(select); cursor = position.position; });
+  const answer = task.answer || {}; const element = (task.question_elements || []).find((item) => typeof item?.text === "string" && item.text.length > 100) || task.question_elements?.[0]; const source = element?.text || ""; const positions = [...(answer.text_position || [])].map((item, index) => ({ ...item, index })).sort((a, b) => a.position - b.position); const body = document.createElement("div"); body.className = "gap-text"; let cursor = 0;
+  positions.forEach((position) => { body.append(textNode(source.slice(cursor, position.position))); const select = document.createElement("select"); select.className = "gap-slot"; select.dataset.slot = position.index; select.innerHTML = `<option value="">выберите</option>`; const localOptions = gapBankOptions(position); const options = localOptions || answer.options || []; options.forEach((option, optionIndex) => { const item = document.createElement("option"); item.value = String(option.id ?? optionIndex); item.textContent = optionLabel(option); select.append(item); }); const current = state.answers[task.id]?.[position.index]; if (current) select.value = current; select.addEventListener("change", () => { const values = state.answers[task.id] || {}; values[position.index] = select.value; state.answers[task.id] = values; persistAnswers(); }); body.append(select); cursor = position.position; });
   body.append(textNode(source.slice(cursor))); container.append(body);
-  const bank = document.createElement("div"); bank.className = "option-bank"; options.forEach((option, index) => { const chip = document.createElement("span"); chip.className = "chip"; chip.textContent = optionLabel(option); chip.title = "Выберите этот вариант в поле выше"; chip.draggable = true; chip.addEventListener("dragstart", (event) => { event.dataTransfer.setData("text/plain", String(option.id ?? index)); }); bank.append(chip); }); container.append(bank);
+  const bankOptions = answer.options?.length ? answer.options : positions.flatMap((position) => position?.options || []);
+  if (bankOptions.length) { const bank = document.createElement("div"); bank.className = "option-bank"; bankOptions.forEach((option, index) => { const chip = document.createElement("span"); chip.className = "chip"; chip.textContent = optionLabel(option); chip.title = "Выберите этот вариант в поле выше"; chip.draggable = true; chip.addEventListener("dragstart", (event) => { event.dataTransfer.setData("text/plain", String(option.id ?? index)); }); bank.append(chip); }); container.append(bank); }
 }
 function renderGapTextInput(container, task) {
   const answer = task.answer || {};
@@ -218,6 +220,12 @@ function renderGapTextInput(container, task) {
   body.append(textNode(source.slice(cursor))); container.append(body);
   const note = document.createElement("p"); note.className = "muted"; note.textContent = `Полей для ввода: ${positions.length}. Ограничение длины: ${answer.text_input_rules === "nolimits" ? "нет" : "не задано API"}.`; container.append(note);
 }
+function detectGapMatchType(task) {
+  const answer = task.answer || {};
+  if (task.answer?.type && /gap\/match/.test(String(task.answer.type))) return true;
+  const positions = answer.text_position || [];
+  return positions.length > 0 && positions.some((position) => Array.isArray(position?.options) && position.options.length > 0);
+}
 function renderAnswer(container, task) {
   const type = task.answer?.type || "unknown"; const help = document.createElement("p"); help.className = "instruction"; help.textContent = TYPE_HELP[type] || "Заполните ответ в соответствии с условием задания."; container.append(help);
   if (type === "answer/single") renderSimpleOptions(container, task, false);
@@ -228,8 +236,8 @@ function renderAnswer(container, task) {
   else if (type === "answer/match") renderMatch(container, task);
   else if (type === "answer/groups") renderGroups(container, task);
   else if (type === "answer/table") renderTableAnswer(container, task);
-  else if (type === "answer/gap/match/text") renderGap(container, task);
   else if (type === "answer/gap/text/input") renderGapTextInput(container, task);
+  else if (type === "answer/gap/match/text" || detectGapMatchType(task)) renderGap(container, task);
   else { const note = document.createElement("p"); note.className = "unsupported"; note.textContent = `Тип ${type} пока отображается в режиме просмотра.`; container.append(note); renderSimpleOptions(container, task, false); }
 }
 function buildSubmitPayload(task) {
@@ -273,19 +281,26 @@ function exportPayload() {
 function downloadJson(filename, value) {
   const blob = new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = filename; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-async function importAnswers(file) {
-  const data = JSON.parse(await file.text());
+function parseImportedText(text) {
+  const cleaned = String(text).trim()
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+  const data = JSON.parse(cleaned);
   if (!data || typeof data !== "object") throw new Error("JSON должен быть объектом.");
   if (data.schema && data.schema !== "mesh-tasks/test-export") throw new Error("Неизвестная схема JSON.");
-  const expected = String(state.snapshot?.response?.challenge_attempt_id ?? ""); const importedAttempt = String(data.source?.attempt_id ?? data.attempt_id ?? expected);
+  const expected = String(state.snapshot?.response?.challenge_attempt_id ?? ""); const importedAttempt = String(data.source?.attempt_id ?? data.attempt_id ?? data.challenge_attempt_id ?? expected);
   if (importedAttempt && expected && importedAttempt !== expected) throw new Error(`Ответы относятся к попытке ${importedAttempt}, а открыта попытка ${expected}.`);
   const imported = data.answers && typeof data.answers === "object" ? data.answers : data;
   const known = new Set(getTasks(state.snapshot).map((task) => String(task.id)));
   const next = {};
   for (const [taskId, answer] of Object.entries(imported)) { if (!known.has(String(taskId))) continue; next[taskId] = answer; }
   if (!Object.keys(next).length) throw new Error("В JSON не найдено ответов для заданий текущей попытки.");
-  state.answers = next; persistAnswers(); await load();
+  return next;
 }
+async function applyImportedAnswers(next) { state.answers = next; persistAnswers(); await load(); }
+async function importAnswers(file) { await applyImportedAnswers(parseImportedText(await file.text())); }
+async function importAnswersText(text) { await applyImportedAnswers(parseImportedText(text)); }
 async function load() {
   const result = await api.runtime.sendMessage({ type: "GET_LATEST_EXAM" }); state.snapshot = result?.exam; state.answers = restoreAnswers();
   const notice = document.querySelector("#notice"); const container = document.querySelector("#questions"); container.replaceChildren(); notice.hidden = true;
@@ -309,10 +324,12 @@ document.querySelector("#finish").addEventListener("click", async () => {
 });
 document.querySelector("#copy").addEventListener("click", async () => { const text = [...document.querySelectorAll(".question")].map((node) => node.innerText).join("\n\n"); await navigator.clipboard.writeText(text); document.querySelector("#copy").textContent = "Скопировано"; setTimeout(() => { document.querySelector("#copy").textContent = "Копировать текст"; }, 1500); });
 document.querySelector("#export").addEventListener("click", () => { if (!state.snapshot?.response) return alert("Сначала открой тест и начни попытку."); const challenge = String(state.snapshot.url || "").match(/challenge\/(\d+)/)?.[1] || "test"; downloadJson(`mesh-test-${challenge}.json`, exportPayload()); });
-document.querySelector("#prompt").addEventListener("click", () => { if (!state.snapshot?.response) return alert("Сначала открой тест и начни попытку."); const payload = exportPayload(); payload.answers = {}; const blankAnswer = (type) => { if (type === "answer/multiple" || type === "answer/order") return []; if (type === "answer/match" || type === "answer/groups" || type === "answer/gap/text/input") return {}; if (type === "answer/number") return null; return ""; }; const answerTemplate = Object.fromEntries(payload.tasks.map((task) => [String(task.id), blankAnswer(task.answer?.type)])); const instructions = `Ты решаешь тест по данным ниже. Твоя задача — вернуть ответы для последующего импорта в расширение МЭШ. Ответ должен содержать РОВНО один JSON-объект и ничего больше: без Markdown, тройных кавычек, пояснений, приветствия, правильных решений вне JSON и дополнительных ключей.\n\nСтрогий формат:\n{\n  "answers": ${JSON.stringify(answerTemplate, null, 2)}\n}\n\nИспользуй этот шаблон как обязательную структуру: сохрани каждый ключ-ID без изменений и замени только значения. Ключи answers должны быть только точными ID заданий из входного JSON; нельзя менять, сокращать или нумеровать эти ID. Для answer/single укажи строковый ID выбранного варианта, а не номер варианта и не текст объяснения. Для answer/multiple укажи массив строковых ID вариантов. Для answer/free и answer/string укажи одну строку. Для answer/number укажи число. Для answer/order укажи массив строковых ID в правильном порядке. Для answer/match и answer/groups укажи объект, где ключи и значения — строковые ID элементов из задания. Для answer/gap/text/input укажи объект с индексами полей (например, {"0":"ответ", "1":"ответ"}). Если ответ невозможно определить, оставь значение пустым согласно типу. Не добавляй ключи right_answer, explanation, solution, confidence, tasks или другие поля. Перед отправкой проверь, что результат является валидным JSON и начинается с {, а не с текста.`; document.querySelector("#prompt-text").value = `${instructions}\n\nДанные теста:\n${JSON.stringify(payload, null, 2)}`; document.querySelector("#prompt-dialog").showModal(); });
+document.querySelector("#prompt").addEventListener("click", () => { if (!state.snapshot?.response) return alert("Сначала открой тест и начни попытку."); const payload = exportPayload(); payload.answers = {}; const blankAnswer = (type) => { if (type === "answer/multiple" || type === "answer/order") return []; if (type === "answer/match" || type === "answer/groups" || type === "answer/gap/text/input") return {}; if (type === "answer/number") return null; return ""; }; const answerTemplate = Object.fromEntries(payload.tasks.map((task) => [String(task.id), blankAnswer(task.answer?.type)])); const instructions = `Ты решаешь тест по данным ниже. Твоя задача — вернуть ответы для последующего импорта в расширение FuckCDZ. Ответ должен содержать РОВНО один JSON-объект и ничего больше: без Markdown, тройных кавычек, пояснений, приветствия, правильных решений вне JSON и дополнительных ключей.\n\nСтрогий формат:\n{\n  "answers": ${JSON.stringify(answerTemplate, null, 2)}\n}\n\nИспользуй этот шаблон как обязательную структуру: сохрани каждый ключ-ID без изменений и замени только значения. Ключи answers должны быть только точными ID заданий из входного JSON; нельзя менять, сокращать или нумеровать эти ID. Для answer/single укажи строковый ID выбранного варианта, а не номер варианта и не текст объяснения. Для answer/multiple укажи массив строковых ID вариантов. Для answer/free и answer/string укажи одну строку. Для answer/number укажи число. Для answer/order укажи массив строковых ID в правильном порядке. Для answer/match и answer/groups укажи объект, где ключи и значения — строковые ID элементов из задания. Для answer/gap/text/input укажи объект с индексами полей (например, {"0":"ответ", "1":"ответ"}). Если ответ невозможно определить, оставь значение пустым согласно типу. Не добавляй ключи right_answer, explanation, solution, confidence, tasks или другие поля. Перед отправкой проверь, что результат является валидным JSON и начинается с {, а не с текста.`; document.querySelector("#prompt-text").value = `${instructions}\n\nДанные теста:\n${JSON.stringify(payload, null, 2)}`; document.querySelector("#prompt-dialog").showModal(); });
 document.querySelector("#copy-prompt").addEventListener("click", async () => { await navigator.clipboard.writeText(document.querySelector("#prompt-text").value); document.querySelector("#copy-prompt").textContent = "Скопировано"; setTimeout(() => { document.querySelector("#copy-prompt").textContent = "Копировать промпт"; }, 1500); });
 document.querySelector("#import").addEventListener("click", () => document.querySelector("#import-file").click());
 document.querySelector("#import-file").addEventListener("change", async (event) => { const file = event.target.files?.[0]; event.target.value = ""; if (!file) return; try { await importAnswers(file); alert("Ответы импортированы и сохранены локально."); } catch (error) { alert(`Не удалось импортировать ответы: ${error?.message || error}`); } });
+document.querySelector("#paste").addEventListener("click", () => { document.querySelector("#paste-text").value = ""; document.querySelector("#paste-dialog").showModal(); });
+document.querySelector("#paste-import").addEventListener("click", async () => { const text = document.querySelector("#paste-text").value; try { await importAnswersText(text); document.querySelector("#paste-dialog").close(); alert("Ответы импортированы и сохранены локально."); } catch (error) { alert(`Не удалось импортировать ответы: ${error?.message || error}`); } });
 load().then(() => {
   if (new URLSearchParams(location.search).get("print") === "1") setTimeout(() => window.print(), 350);
 }).catch((error) => { const notice = document.querySelector("#notice"); notice.hidden = false; notice.textContent = String(error?.message || error); });

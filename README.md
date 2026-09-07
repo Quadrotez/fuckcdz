@@ -1,4 +1,4 @@
-# МЭШ: все задания
+# FuckCDZ
 
 Кросс-браузерное расширение для Chromium и Firefox/LibreWolf. Расширение локально сканирует открытую страницу дневника МЭШ на `school.mos.ru`, собирает найденные карточки заданий и показывает их в едином интерфейсе. Тестовые материалы открываются на `uchebnik.mos.ru` в оригинальном интерфейсе. Для Chromium используется Manifest V3, а для Firefox/LibreWolf сборщик создаёт Manifest V2 с `background.scripts`, что совместимо с конфигурациями LibreWolf, где MV3 service worker отключён.
 
@@ -26,8 +26,8 @@ scripts\build-extension.bat
 ```text
 dist/chrome/
 dist/firefox/
-dist/mesh-tasks-chrome.zip
-dist/mesh-tasks-firefox.zip
+dist/fuckcdz-chrome.zip
+dist/fuckcdz-firefox.zip
 ```
 
 ## Установка в LibreWolf

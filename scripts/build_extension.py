@@ -33,7 +33,7 @@ FILES = [
 
 def build(browser: str, manifest: dict) -> None:
     target = DIST / browser
-    archive = DIST / f"mesh-tasks-{browser}.zip"
+    archive = DIST / f"fuckcdz-{browser}.zip"
     if target.exists():
         shutil.rmtree(target)
     target.mkdir(parents=True)
@@ -55,15 +55,15 @@ def build(browser: str, manifest: dict) -> None:
 def main() -> None:
     base = json.loads((SOURCE / "manifest.base.json").read_text(encoding="utf-8"))
     chrome = dict(base)
-    chrome["name"] = "МЭШ: все задания (Chromium)"
+    chrome["name"] = "FuckCDZ (Chromium)"
     firefox = dict(base)
-    firefox["name"] = "МЭШ: все задания (Firefox/LibreWolf)"
+    firefox["name"] = "FuckCDZ (Firefox/LibreWolf)"
     # Некоторые версии LibreWolf отключают MV3 service_worker и принимают
     # только классический background page из Manifest V2.
     firefox["manifest_version"] = 2
     firefox.pop("action", None)
     firefox["browser_action"] = {
-        "default_title": "МЭШ: задания и тесты",
+        "default_title": "FuckCDZ",
         "default_popup": "popup.html",
         "default_icon": {
             "16": "icons/icon-16.png",
@@ -83,7 +83,7 @@ def main() -> None:
     firefox["web_accessible_resources"] = ["page-hook.js"]
     firefox["browser_specific_settings"] = {
         "gecko": {
-            "id": "mesh-tasks@quadrotez.local",
+            "id": "fuckcdz@quadrotez.local",
             "strict_min_version": "109.0",
         }
     }
