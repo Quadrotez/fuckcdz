@@ -11,16 +11,22 @@ function normalizeStatus(status) {
   return value.includes("done") || value.includes("выполн") || value.includes("заверш") ? "done" : "new";
 }
 
+function parseDate(value) {
+  const raw = String(value || "").replace(/^до\s+/i, "").trim();
+  const russian = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/);
+  if (russian) { const year = russian[3].length === 2 ? `20${russian[3]}` : russian[3]; return new Date(Number(year), Number(russian[2]) - 1, Number(russian[1])).valueOf(); }
+  const parsed = Date.parse(raw); return Number.isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed;
+}
 function formatDate(value) {
   if (!value) return "";
-  const date = new Date(value);
-  return Number.isNaN(date.valueOf()) ? String(value) : date.toLocaleDateString("ru-RU");
+  const date = new Date(parseDate(value));
+  return Number.isNaN(date.valueOf()) || date.valueOf() === Number.MAX_SAFE_INTEGER ? String(value) : date.toLocaleDateString("ru-RU");
 }
 
 function render() {
   const query = $("#search").value.trim().toLowerCase();
   const status = $("#status").value;
-  const filtered = state.tasks.filter((task) => {
+  const filtered = state.tasks.filter((task) => Array.isArray(task.materials) && task.materials.length > 0).sort((a, b) => parseDate(a.dueDate) - parseDate(b.dueDate) || String(a.title || "").localeCompare(String(b.title || ""), "ru")).filter((task) => {
     const haystack = [task.title, task.subject, task.description, ...(task.materials ?? []).map((item) => item.title)].join(" ").toLowerCase();
     return (!query || haystack.includes(query)) && (status === "all" || normalizeStatus(task.status) === status);
   });

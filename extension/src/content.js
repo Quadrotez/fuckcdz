@@ -58,7 +58,13 @@
         sourceUrl: location.href
       });
     }
-    return tasks;
+    return tasks
+      .filter((task) => task.materials.length > 0)
+      .sort((a, b) => {
+        const left = Date.parse(a.dueDate || "") || Number.MAX_SAFE_INTEGER;
+        const right = Date.parse(b.dueDate || "") || Number.MAX_SAFE_INTEGER;
+        return left - right || a.title.localeCompare(b.title, "ru");
+      });
   }
 
   async function scan() {
@@ -71,29 +77,4 @@
     if (message?.type === "SCAN_PAGE") return scan();
   });
 
-  const button = document.createElement("button");
-  button.type = "button";
-  button.textContent = "Собрать задания";
-  button.title = "Открыть агрегатор заданий МЭШ";
-  Object.assign(button.style, {
-    position: "fixed", right: "18px", bottom: "18px", zIndex: "2147483647",
-    border: "0", borderRadius: "10px", padding: "12px 16px", cursor: "pointer",
-    background: "#315fc1", color: "white", font: "600 14px system-ui",
-    boxShadow: "0 5px 18px rgba(0,0,0,.22)"
-  });
-  button.addEventListener("click", async () => {
-    button.disabled = true;
-    button.textContent = "Сканирую…";
-    try {
-      const result = await scan();
-      button.textContent = `Найдено: ${result.count}`;
-      setTimeout(() => { button.textContent = "Собрать задания"; button.disabled = false; }, 1800);
-      await api.runtime.sendMessage({ type: "OPEN_TASKS" });
-    } catch (error) {
-      button.textContent = "Ошибка сканирования";
-      button.disabled = false;
-      console.error("МЭШ: все задания", error);
-    }
-  });
-  document.documentElement.append(button);
 })();

@@ -9,13 +9,14 @@
 <body>
   <header class="topbar">
     <div><p class="eyebrow">МЭШ / интерактивный просмотрщик</p><h1>Все задания теста</h1><p id="meta" class="muted">Загрузка snapshot…</p></div>
-    <div class="actions"><button id="refresh">Обновить</button><button id="copy" class="secondary">Копировать текст</button><button id="export" class="secondary">Экспорт JSON</button><button id="import" class="secondary">Импорт ответов</button><input id="import-file" type="file" accept="application/json,.json" hidden><button id="print" class="secondary">Печать / PDF</button><button id="finish" class="danger">Подтвердить и завершить тестирование</button><button id="debug" class="secondary">Debug</button></div>
+    <div class="actions"><button id="refresh">Обновить</button><button id="copy" class="secondary">Копировать текст</button><button id="export" class="secondary">Экспорт JSON</button><button id="prompt" class="secondary">Сгенерировать промпт</button><button id="import" class="secondary">Импорт ответов</button><input id="import-file" type="file" accept="application/json,.json" hidden><button id="print" class="secondary">Печать / PDF</button><button id="finish" class="danger">Подтвердить и завершить тестирование</button><button id="debug" class="secondary">Debug</button></div>
   </header>
   <main>
     <div id="notice" class="notice" hidden></div>
     <section id="summary" class="summary"></section>
     <section id="questions" class="questions"></section>
   </main>
+  <dialog id="prompt-dialog"><form method="dialog" class="prompt-card"><h2>Промпт для решения теста</h2><p>Скопируй весь текст и вставь его в нужную нейросеть. В ответе должен быть только JSON с объектом <code>answers</code>.</p><textarea id="prompt-text" spellcheck="false"></textarea><div class="prompt-actions"><button id="copy-prompt" class="primary" type="button">Копировать промпт</button><button value="cancel" class="secondary">Закрыть</button></div></form></dialog>
   <script src="exam.js"></script>
 </body>
 </html>
