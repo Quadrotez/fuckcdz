@@ -39,6 +39,7 @@ def build(browser: str, manifest: dict) -> None:
     target.mkdir(parents=True)
     for name in FILES:
         shutil.copy2(SOURCE / "src" / name, target / name)
+    shutil.copytree(SOURCE / "icons", target / "icons")
     (target / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
@@ -64,6 +65,12 @@ def main() -> None:
     firefox["browser_action"] = {
         "default_title": "МЭШ: задания и тесты",
         "default_popup": "popup.html",
+        "default_icon": {
+            "16": "icons/icon-16.png",
+            "32": "icons/icon-32.png",
+            "48": "icons/icon-48.png",
+            "96": "icons/icon-96.png",
+        },
     }
     firefox.pop("host_permissions", None)
     firefox["permissions"] = [
