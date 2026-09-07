@@ -16,7 +16,7 @@
     <section id="summary" class="summary"></section>
     <section id="questions" class="questions"></section>
   </main>
-  <dialog id="prompt-dialog"><form method="dialog" class="prompt-card"><h2>Промпт для решения теста</h2><p>Скопируй весь текст и вставь его в нужную нейросеть. В ответе должен быть только JSON с объектом <code>answers</code>.</p><textarea id="prompt-text" spellcheck="false"></textarea><div class="prompt-actions"><button id="copy-prompt" class="primary" type="button">Копировать промпт</button><button value="cancel" class="secondary">Закрыть</button></div></form></dialog>
+  <dialog id="prompt-dialog"><form method="dialog" class="prompt-card"><div class="prompt-heading"><h2>Промпт для решения теста</h2><button id="close-prompt" class="prompt-close" type="submit" value="cancel" aria-label="Закрыть окно">×</button></div><p>Скопируй весь текст и вставь его в нужную нейросеть. В ответе должен быть только JSON с объектом <code>answers</code>.</p><textarea id="prompt-text" spellcheck="false"></textarea><div class="prompt-actions"><button id="copy-prompt" class="primary" type="button">Копировать промпт</button><button value="cancel" class="secondary">Закрыть</button></div></form></dialog>
   <script src="exam.js"></script>
 </body>
 </html>
