@@ -281,24 +281,54 @@ function exportPayload() {
 function downloadJson(filename, value) {
   const blob = new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = filename; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+function normalizeAnswerText(value) {
+  return String(value ?? "").replace(/```[a-zA-Z]*\n?|```/g, "").replace(/\s+/g, " ").trim().replace(/^\d+\.\s*/, "").toLowerCase();
+}
+function findOptionId(task, value) {
+  const options = Array.isArray(task.answer?.options) ? task.answer.options : [];
+  const raw = String(value ?? "").trim();
+  if (options.some((option, index) => String(option.id ?? index) === raw)) return raw;
+  const wanted = normalizeAnswerText(raw);
+  const match = options.find((option) => normalizeAnswerText(optionLabel(option)) === wanted);
+  return match ? String(match.id ?? options.indexOf(match)) : null;
+}
+function normalizeImportedAnswer(task, value) {
+  const type = task.answer?.type;
+  if (type === "answer/single") {
+    const id = findOptionId(task, value);
+    if (id == null) throw new Error(`не найден вариант для задания ${task.id}`);
+    return id;
+  }
+  if (type === "answer/multiple" || type === "answer/order") {
+    if (!Array.isArray(value)) throw new Error(`для задания ${task.id} нужен массив`);
+    return value.map((item) => { const id = findOptionId(task, item); if (id == null) throw new Error(`не найден вариант для задания ${task.id}`); return id; });
+  }
+  if (type === "answer/number") return value === null || value === "" ? "" : String(value);
+  if (type === "answer/gap/text/input") {
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`для задания ${task.id} нужен объект полей`);
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [String(key), String(item ?? "")]));
+  }
+  return value;
+}
 function parseImportedText(text) {
-  const cleaned = String(text).trim()
-    .replace(/^```(?:json)?/i, "")
-    .replace(/```\s*$/i, "")
-    .trim();
+  const cleaned = String(text).trim().replace(/^```(?:json)?/i, "").replace(/```\s*$/i, "").trim();
   const data = JSON.parse(cleaned);
   if (!data || typeof data !== "object") throw new Error("JSON должен быть объектом.");
   if (data.schema && data.schema !== "mesh-tasks/test-export") throw new Error("Неизвестная схема JSON.");
   const expected = String(state.snapshot?.response?.challenge_attempt_id ?? ""); const importedAttempt = String(data.source?.attempt_id ?? data.attempt_id ?? data.challenge_attempt_id ?? expected);
   if (importedAttempt && expected && importedAttempt !== expected) throw new Error(`Ответы относятся к попытке ${importedAttempt}, а открыта попытка ${expected}.`);
   const imported = data.answers && typeof data.answers === "object" ? data.answers : data;
-  const known = new Set(getTasks(state.snapshot).map((task) => String(task.id)));
-  const next = {};
-  for (const [taskId, answer] of Object.entries(imported)) { if (!known.has(String(taskId))) continue; next[taskId] = answer; }
-  if (!Object.keys(next).length) throw new Error("В JSON не найдено ответов для заданий текущей попытки.");
+  const tasks = getTasks(state.snapshot); const byId = new Map(tasks.map((task) => [String(task.id), task]));
+  const next = {}; const unknown = []; const errors = [];
+  for (const [taskId, answer] of Object.entries(imported)) {
+    const task = byId.get(String(taskId)); if (!task) { unknown.push(taskId); continue; }
+    try { next[String(taskId)] = normalizeImportedAnswer(task, answer); } catch (error) { errors.push(error.message); }
+  }
+  if (!Object.keys(next).length) throw new Error(`Не импортировано ни одного ответа. ${errors.join(" ") || "Проверь ID заданий и текущую попытку."}`);
+  parseImportedText.lastReport = { imported: Object.keys(next).length, total: tasks.length, unknown, errors };
   return next;
 }
-async function applyImportedAnswers(next) { state.answers = next; persistAnswers(); await load(); }
+async function applyImportedAnswers(next) { state.answers = { ...state.answers, ...next }; persistAnswers(); await load(); const report = parseImportedText.lastReport; const parts = [`Импортировано: ${report?.imported || Object.keys(next).length} из ${report?.total || "?"}.`]; if (report?.unknown?.length) parts.push(`Неизвестные ID: ${report.unknown.slice(0, 5).join(", ")}.`); if (report?.errors?.length) parts.push(`Ошибки: ${report.errors.slice(0, 3).join(" ")}.`); alert(parts.join(" ")); }
 async function importAnswers(file) { await applyImportedAnswers(parseImportedText(await file.text())); }
 async function importAnswersText(text) { await applyImportedAnswers(parseImportedText(text)); }
 async function load() {
@@ -327,9 +357,9 @@ document.querySelector("#export").addEventListener("click", () => { if (!state.s
 document.querySelector("#prompt").addEventListener("click", () => { if (!state.snapshot?.response) return alert("Сначала открой тест и начни попытку."); const payload = exportPayload(); payload.answers = {}; const blankAnswer = (type) => { if (type === "answer/multiple" || type === "answer/order") return []; if (type === "answer/match" || type === "answer/groups" || type === "answer/gap/text/input") return {}; if (type === "answer/number") return null; return ""; }; const answerTemplate = Object.fromEntries(payload.tasks.map((task) => [String(task.id), blankAnswer(task.answer?.type)])); const instructions = `Ты решаешь тест по данным ниже. Твоя задача — вернуть ответы для последующего импорта в расширение FuckCDZ. Ответ должен содержать РОВНО один JSON-объект и ничего больше: без Markdown, тройных кавычек, пояснений, приветствия, правильных решений вне JSON и дополнительных ключей.\n\nСтрогий формат:\n{\n  "answers": ${JSON.stringify(answerTemplate, null, 2)}\n}\n\nИспользуй этот шаблон как обязательную структуру: сохрани каждый ключ-ID без изменений и замени только значения. Ключи answers должны быть только точными ID заданий из входного JSON; нельзя менять, сокращать или нумеровать эти ID. Для answer/single укажи строковый ID выбранного варианта, а не номер варианта и не текст объяснения. Для answer/multiple укажи массив строковых ID вариантов. Для answer/free и answer/string укажи одну строку. Для answer/number укажи число. Для answer/order укажи массив строковых ID в правильном порядке. Для answer/match и answer/groups укажи объект, где ключи и значения — строковые ID элементов из задания. Для answer/gap/text/input укажи объект с индексами полей (например, {"0":"ответ", "1":"ответ"}). Если ответ невозможно определить, оставь значение пустым согласно типу. Не добавляй ключи right_answer, explanation, solution, confidence, tasks или другие поля. Перед отправкой проверь, что результат является валидным JSON и начинается с {, а не с текста.`; document.querySelector("#prompt-text").value = `${instructions}\n\nДанные теста:\n${JSON.stringify(payload, null, 2)}`; document.querySelector("#prompt-dialog").showModal(); });
 document.querySelector("#copy-prompt").addEventListener("click", async () => { await navigator.clipboard.writeText(document.querySelector("#prompt-text").value); document.querySelector("#copy-prompt").textContent = "Скопировано"; setTimeout(() => { document.querySelector("#copy-prompt").textContent = "Копировать промпт"; }, 1500); });
 document.querySelector("#import").addEventListener("click", () => document.querySelector("#import-file").click());
-document.querySelector("#import-file").addEventListener("change", async (event) => { const file = event.target.files?.[0]; event.target.value = ""; if (!file) return; try { await importAnswers(file); alert("Ответы импортированы и сохранены локально."); } catch (error) { alert(`Не удалось импортировать ответы: ${error?.message || error}`); } });
+document.querySelector("#import-file").addEventListener("change", async (event) => { const file = event.target.files?.[0]; event.target.value = ""; if (!file) return; try { await importAnswers(file); } catch (error) { alert(`Не удалось импортировать ответы: ${error?.message || error}`); } });
 document.querySelector("#paste").addEventListener("click", () => { document.querySelector("#paste-text").value = ""; document.querySelector("#paste-dialog").showModal(); });
-document.querySelector("#paste-import").addEventListener("click", async () => { const text = document.querySelector("#paste-text").value; try { await importAnswersText(text); document.querySelector("#paste-dialog").close(); alert("Ответы импортированы и сохранены локально."); } catch (error) { alert(`Не удалось импортировать ответы: ${error?.message || error}`); } });
+document.querySelector("#paste-import").addEventListener("click", async () => { const text = document.querySelector("#paste-text").value; try { await importAnswersText(text); document.querySelector("#paste-dialog").close(); } catch (error) { alert(`Не удалось импортировать ответы: ${error?.message || error}`); } });
 load().then(() => {
   if (new URLSearchParams(location.search).get("print") === "1") setTimeout(() => window.print(), 350);
 }).catch((error) => { const notice = document.querySelector("#notice"); notice.hidden = false; notice.textContent = String(error?.message || error); });
