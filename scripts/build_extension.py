@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build unpacked and ZIP browser-extension bundles for Chromium and Firefox."""
+"""Build unpacked and ZIP bundles for Chromium and Gecko browsers."""
 from __future__ import annotations
 
 import json
@@ -54,15 +54,13 @@ def build(browser: str, manifest: dict) -> None:
 
 def main() -> None:
     base = json.loads((SOURCE / "manifest.base.json").read_text(encoding="utf-8"))
-    chrome = dict(base)
-    chrome["name"] = "FuckCDZ (Chromium)"
-    firefox = dict(base)
-    firefox["name"] = "FuckCDZ (Firefox/LibreWolf)"
-    # Некоторые версии LibreWolf отключают MV3 service_worker и принимают
-    # только классический background page из Manifest V2.
-    firefox["manifest_version"] = 2
-    firefox.pop("action", None)
-    firefox["browser_action"] = {
+    chromium = dict(base)
+    chromium["name"] = "FuckCDZ (Chromium)"
+    gecko = dict(base)
+    gecko["name"] = "FuckCDZ (Gecko)"
+    gecko["manifest_version"] = 2
+    gecko.pop("action", None)
+    gecko["browser_action"] = {
         "default_title": "FuckCDZ",
         "default_popup": "popup.html",
         "default_icon": {
@@ -72,23 +70,23 @@ def main() -> None:
             "96": "icons/icon-96.png",
         },
     }
-    firefox.pop("host_permissions", None)
-    firefox["permissions"] = [
-        *firefox.get("permissions", []),
+    gecko.pop("host_permissions", None)
+    gecko["permissions"] = [
+        *gecko.get("permissions", []),
         "https://school.mos.ru/*",
         "https://dnevnik.mos.ru/*",
         "https://uchebnik.mos.ru/*",
     ]
-    firefox["background"] = {"scripts": ["background.js"]}
-    firefox["web_accessible_resources"] = ["page-hook.js"]
-    firefox["browser_specific_settings"] = {
+    gecko["background"] = {"scripts": ["background.js"]}
+    gecko["web_accessible_resources"] = ["page-hook.js"]
+    gecko["browser_specific_settings"] = {
         "gecko": {
             "id": "fuckcdz@quadrotez.local",
             "strict_min_version": "109.0",
         }
     }
-    build("chrome", chrome)
-    build("firefox", firefox)
+    build("chromium", chromium)
+    build("gecko", gecko)
 
 
 if __name__ == "__main__":
