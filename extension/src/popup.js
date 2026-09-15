@@ -6,6 +6,8 @@ function setHint(text) { document.querySelector("#hint").textContent = text; }
 function isDiary() { return /^https:\/\/(school|dnevnik)\.mos\.ru\//.test(activeTab?.url || ""); }
 function isExam() { return /^https:\/\/uchebnik\.mos\.ru\//.test(activeTab?.url || ""); }
 
+document.querySelector("#settings").addEventListener("click", () => api.runtime.openOptionsPage());
+
 async function init() {
   [activeTab] = await api.tabs.query({ active: true, currentWindow: true });
   const status = document.querySelector("#status");

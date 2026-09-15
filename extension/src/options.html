@@ -1,56 +1,29 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FuckCDZ — настройки</title>
-  <style>
-    :root { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #18212f; background: #f4f6fa; }
-    * { box-sizing: border-box; }
-    body { margin: 0; padding: 32px 18px 56px; }
-    main { width: min(720px, 100%); margin: auto; }
-    h1 { margin: 0 0 8px; } h2 { margin: 28px 0 10px; font-size: 20px; }
-    .muted { color: #667085; line-height: 1.5; }
-    .beta { padding: 14px 16px; border-left: 4px solid #b7791f; border-radius: 8px; background: #fff5d9; color: #654b12; line-height: 1.45; }
-    form { padding: 20px; border: 1px solid #dfe5ee; border-radius: 12px; background: #fff; box-shadow: 0 5px 18px rgb(28 45 77 / 5%); }
-    label { display: grid; gap: 6px; margin: 14px 0; font-weight: 650; }
-    input, select { width: 100%; padding: 10px 11px; border: 1px solid #bfc9d9; border-radius: 7px; font: inherit; }
-    small { color: #667085; font-weight: 400; line-height: 1.4; }
-    .row { display: grid; grid-template-columns: 1fr 150px; gap: 12px; }
-    button { padding: 10px 15px; border: 0; border-radius: 8px; background: #315fc1; color: #fff; font: 650 14px system-ui; cursor: pointer; }
-    .actions { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
-    #status { color: #18794e; }
-    @media (max-width: 540px) { .row { grid-template-columns: 1fr; } }
-  </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>FuckCDZ — настройки</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#18212f;background:#f4f6fa}*{box-sizing:border-box}body{margin:0;padding:30px 18px 60px}main{width:min(920px,100%);margin:auto}h1{margin:0 0 6px}h2{margin:28px 0 10px;font-size:20px}.muted{color:#667085;line-height:1.5}.beta{padding:14px 16px;border-left:4px solid #b7791f;border-radius:8px;background:#fff5d9;color:#654b12;line-height:1.45}.card{padding:20px;border:1px solid #dfe5ee;border-radius:12px;background:#fff;box-shadow:0 5px 18px rgb(28 45 77 / 5%)}label{display:grid;gap:6px;margin:14px 0;font-weight:650}input,select{width:100%;padding:10px 11px;border:1px solid #bfc9d9;border-radius:7px;font:inherit}small{color:#667085;font-weight:400;line-height:1.4}.grid{display:grid;grid-template-columns:1fr 150px;gap:12px}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}.actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px}button{padding:10px 15px;border:0;border-radius:8px;background:#315fc1;color:#fff;font:650 14px system-ui;cursor:pointer}button.secondary{background:#eef3ff;color:#315fc1;border:1px solid #cddaf4}button:disabled{opacity:.5;cursor:wait}.status{min-height:20px;color:#18794e}.status.error{color:#b42318}.check{display:flex;grid-template-columns:none;align-items:center;gap:9px;font-weight:600}.check input{width:auto}.model-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.model-toolbar select{flex:1;min-width:260px}.model-meta{font-size:13px;color:#667085}.model-table{width:100%;border-collapse:collapse;margin-top:14px;font-size:14px}.model-table th,.model-table td{padding:9px;border-bottom:1px solid #e5e9f0;text-align:left}.vision{display:inline-block;padding:3px 7px;border-radius:999px;font-size:12px;background:#e9f7ef;color:#18794e}.text-vision{background:#f1f3f6;color:#667085}.warning{margin-top:12px;padding:10px 12px;border-radius:7px;background:#f7f8fb;color:#596579;font-size:13px;line-height:1.45}@media(max-width:650px){.grid,.grid3{grid-template-columns:1fr}}
+</style>
 </head>
-<body>
-  <main>
-    <h1>FuckCDZ</h1>
-    <p class="muted">Настройки расширения. Основной просмотрщик работает локально.</p>
-    <h2>Авторешение</h2>
-    <p class="beta"><strong>Бета-функция.</strong> Авторешение отправляет условие и варианты текущего теста на выбранный вами endpoint. Ответы только подставляются в локальные поля. Тестирование и его официальное завершение пользователь выполняет самостоятельно.</p>
-    <form id="settings-form">
-      <label><span>Провайдер</span><select id="provider"><option value="openai-compatible">OpenAI-совместимый endpoint</option></select><small>Поддерживается формат API <code>/v1/chat/completions</code>.</small></label>
-      <div class="row"><label><span>Хост</span><input id="host" placeholder="api.openai.com или 127.0.0.1" autocomplete="url"><small>Без протокола и пути.</small></label><label><span>Порт</span><input id="port" type="number" min="1" max="65535" placeholder="443"><small>Для HTTPS обычно 443.</small></label></div>
-      <label><span>Протокол</span><select id="protocol"><option value="https">HTTPS</option><option value="http">HTTP (локальная сеть)</option></select></label>
-      <label><span>Путь API</span><input id="path" value="/v1/chat/completions"><small>Можно изменить для совместимого сервера.</small></label>
-      <label><span>Модель</span><input id="model" value="gpt-4o-mini" placeholder="gpt-4o-mini"></label>
-      <label><span>Тип авторизации</span><select id="authType"><option value="bearer">Bearer API key</option><option value="x-api-key">X-API-Key</option><option value="none">Без авторизации</option></select></label>
-      <label id="key-field"><span>API-ключ</span><input id="apiKey" type="password" autocomplete="off"><small>Хранится только в локальном хранилище расширения и передаётся выбранному endpoint’у.</small></label>
-      <div class="actions"><button type="submit">Сохранить настройки</button><span id="status" role="status"></span></div>
-    </form>
-  </main>
-  <script>
-    const api = globalThis.browser ?? globalThis.chrome;
-    const defaults = { provider: "openai-compatible", protocol: "https", host: "api.openai.com", port: "443", path: "/v1/chat/completions", model: "gpt-4o-mini", authType: "bearer", apiKey: "" };
-    const ids = Object.keys(defaults);
-    const form = document.querySelector("#settings-form");
-    const auth = document.querySelector("#authType");
-    function updateAuth() { document.querySelector("#key-field").hidden = auth.value === "none"; }
-    async function load() { const { autoSolve = {} } = await api.storage.local.get("autoSolve"); const value = { ...defaults, ...autoSolve }; ids.forEach((id) => { document.querySelector(`#${id}`).value = value[id] ?? defaults[id]; }); updateAuth(); }
-    auth.addEventListener("change", updateAuth);
-    form.addEventListener("submit", async (event) => { event.preventDefault(); const value = Object.fromEntries(ids.map((id) => [id, document.querySelector(`#${id}`).value.trim()])); await api.storage.local.set({ autoSolve: value }); const status = document.querySelector("#status"); status.textContent = "Сохранено"; setTimeout(() => { status.textContent = ""; }, 2500); });
-    load().catch((error) => { document.querySelector("#status").textContent = `Ошибка: ${error.message}`; });
-  </script>
-</body>
-</html>
+<body><main>
+<h1>Настройки FuckCDZ</h1><p class="muted">Параметры подключения хранятся локально в браузере. Расширение не отправляет запросы, пока вы не нажмёте «Проверить подключение» или «Авторешение».</p>
+<h2>Авторешение</h2><p class="beta"><strong>Бета-функция.</strong> Авторешение подставляет ответы в локальные поля. Оно не отправляет ответы в МЭШ и не завершает тестирование. Включайте отправку изображений только если выбранная модель действительно принимает vision-вход.</p>
+<form id="settings-form" class="card">
+<label><span>Провайдер</span><select id="provider"><option value="openai-compatible">OpenAI-совместимый API</option></select><small>Поддерживаются Chat Completions и Models API в совместимом формате.</small></label>
+<div class="grid3"><label><span>Протокол</span><select id="protocol"><option value="https">HTTPS</option><option value="http">HTTP</option></select></label><label><span>Хост</span><input id="host" placeholder="api.openai.com или 127.0.0.1"></label><label><span>Порт</span><input id="port" type="number" min="1" max="65535" placeholder="443"></label></div>
+<div class="grid"><label><span>Путь Chat Completions</span><input id="path" value="/v1/chat/completions"></label><label><span>Путь Models API</span><input id="modelsPath" value="/v1/models"></label></div>
+<div class="grid"><label><span>Тип авторизации</span><select id="authType"><option value="bearer">Bearer API key</option><option value="x-api-key">X-API-Key</option><option value="none">Без авторизации</option></select></label><label id="key-field"><span>API-ключ</span><input id="apiKey" type="password" autocomplete="off"></label></div>
+<h2>Модель</h2><div class="model-toolbar"><select id="modelSelect"><option value="">Сначала загрузите список моделей</option></select><button id="refresh-models" type="button" class="secondary">Обновить модели</button></div><label><span>Выбранная модель</span><input id="model" placeholder="Выберите модель или введите ID вручную"><small id="selected-model-meta">Модель не выбрана.</small></label><div id="models-list"></div>
+<h2>Изображения и vision</h2><label class="check"><input id="sendImages" type="checkbox"> Отправлять изображения из вариантов заданий</label><div class="grid"><label><span>Режим vision</span><select id="vision"><option value="auto">Авто: по metadata и названию модели</option><option value="on">Всегда включать</option><option value="off">Никогда не включать</option></select><small>Авто-режим отмечает вероятную поддержку, но не заменяет документацию провайдера.</small></label><label><span>Максимальный размер одного изображения, KB</span><input id="maxImageSizeKb" type="number" min="64" max="4096" value="1024"><small>Слишком большие или недоступные изображения пропускаются.</small></label></div><p class="warning">Изображения конвертируются в data URL и отправляются в запросе к выбранной модели. Это может увеличить расход токенов и стоимость запроса.</p>
+<div class="actions"><button id="save" type="submit">Сохранить настройки</button><button id="test" type="button" class="secondary">Проверить подключение</button><span id="status" class="status" role="status"></span></div>
+</form></main>
+<script>
+const api=globalThis.browser??globalThis.chrome;const defaults={provider:"openai-compatible",protocol:"https",host:"api.openai.com",port:"443",path:"/v1/chat/completions",modelsPath:"/v1/models",model:"gpt-4o-mini",authType:"bearer",apiKey:"",sendImages:true,vision:"auto",maxImageSizeKb:"1024"};const ids=Object.keys(defaults);const $=id=>document.querySelector(`#${id}`);const form=$("settings-form"),auth=$("authType"),status=$("status"),modelSelect=$("modelSelect"),modelsList=$("models-list");let current={...defaults};
+function updateAuth(){$("key-field").hidden=auth.value==="none"}function updateModelMeta(model){const found=(current.models||[]).find(item=>item.id===model);$("selected-model-meta").textContent=found?`${found.vision?"Vision вероятно поддерживается":"Только текст по metadata/эвристике"} · ${found.owned_by||"провайдер не указан"}`:"Модель не выбрана или введена вручную."}
+function collect(){return {...current,...Object.fromEntries(ids.map(id=>[id,$(id).type==="checkbox"?$(id).checked:$(id).value.trim()]))}}async function save(show=true){current=collect();await api.storage.local.set({autoSolve:current});if(show){status.className="status";status.textContent="Настройки сохранены.";setTimeout(()=>status.textContent="",2500)}}
+function renderModels(models){current.models=models;modelSelect.replaceChildren(new Option(models.length?"Выберите модель…":"Модели не найдены",""));models.forEach(item=>modelSelect.append(new Option(`${item.id}${item.vision?" · vision":""}`,item.id)));modelSelect.value=current.model||"";modelsList.replaceChildren();if(models.length){const table=document.createElement("table");table.className="model-table";table.innerHTML="<thead><tr><th>Модель</th><th>Vision</th><th>Владелец</th></tr></thead>";const body=document.createElement("tbody");models.forEach(item=>{const row=document.createElement("tr");row.innerHTML=`<td>${item.id}</td><td><span class="${item.vision?"vision":"vision text-vision"}">${item.vision?"вероятно да":"не определено"}</span></td><td>${item.owned_by||"—"}</td>`;body.append(row)});table.append(body);modelsList.append(table)}updateModelMeta(current.model)}
+async function loadModels(test=false){await save(false);status.className="status";status.textContent=test?"Проверяю подключение…":"Загружаю список моделей…";const result=await api.runtime.sendMessage({type:test?"TEST_PROVIDER":"LIST_MODELS"});if(!result?.ok){status.className="status error";status.textContent=result?.error||"Не удалось получить список моделей.";return}current.latencyMs=result.latencyMs;renderModels(result.models||[]);status.className="status";status.textContent=`Подключение успешно · ${result.models?.length||0} моделей${result.latencyMs?` · ${result.latencyMs} мс`:""}`;await api.storage.local.set({autoSolve:current})}
+async function load(){const result=await api.storage.local.get("autoSolve");current={...defaults,...(result.autoSolve||{})};ids.forEach(id=>{if($(id).type==="checkbox")$(id).checked=current[id]!==false;else $(id).value=current[id]??defaults[id]});updateAuth();if(Array.isArray(current.models))renderModels(current.models);else updateModelMeta(current.model)}
+auth.addEventListener("change",updateAuth);modelSelect.addEventListener("change",()=>{$("model").value=modelSelect.value;current.model=modelSelect.value;updateModelMeta(current.model)});$("refresh-models").addEventListener("click",()=>loadModels(false));$("test").addEventListener("click",()=>loadModels(true));form.addEventListener("submit",e=>{e.preventDefault();save(true)});load().catch(e=>{status.className="status error";status.textContent=e.message});
+</script></body></html>

@@ -388,7 +388,8 @@ async function runAutoSolve() {
   const status = document.querySelector("#auto-solve-status"); const button = document.querySelector("#auto-solve");
   button.disabled = true; status.textContent = "Отправляю тест на выбранный endpoint…";
   try {
-    const result = await api.runtime.sendMessage({ type: "AUTO_SOLVE", prompt: buildAutoSolvePrompt() });
+    const imageUrls = [...document.querySelectorAll(".question img")].map((image) => image.currentSrc || image.src).filter(Boolean);
+    const result = await api.runtime.sendMessage({ type: "AUTO_SOLVE", prompt: buildAutoSolvePrompt(), imageUrls });
     if (!result?.ok) throw new Error(result?.error || "Не удалось получить ответ от endpoint.");
     const cleaned = String(result.content || "").trim().replace(/^```(?:json)?/i, "").replace(/```\s*$/i, "").trim();
     const data = JSON.parse(cleaned); const imported = data.answers && typeof data.answers === "object" ? data.answers : data;
