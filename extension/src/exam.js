@@ -386,8 +386,11 @@ function buildAutoSolvePrompt() {
 async function runAutoSolve() {
   if (!state.snapshot?.response) { alert("Сначала открой тест и начни попытку."); return; }
   const status = document.querySelector("#auto-solve-status"); const button = document.querySelector("#auto-solve");
-  button.disabled = true; status.textContent = "Отправляю тест на выбранный endpoint…";
+  button.disabled = true; status.textContent = "Проверяю разрешение endpoint…";
   try {
+    const settingsResult = await api.storage.local.get("autoSolve"); const settings = settingsResult.autoSolve || {};
+    if (api.permissions?.request) { const host = String(settings.host || "").trim().replace(/^https?:\/\//, "").replace(/\/$/, ""); const protocol = settings.protocol === "http" ? "http" : "https"; const port = String(settings.port || "").trim(); if (!host || !(await api.permissions.request({ origins: [`${protocol}://${host}${port ? `:${port}` : ""}/*`] }))) throw new Error("Браузер не разрешил сетевой адрес endpoint."); }
+    status.textContent = "Отправляю тест на выбранный endpoint…";
     const imageUrls = [...document.querySelectorAll(".question img")].map((image) => image.currentSrc || image.src).filter(Boolean);
     const result = await api.runtime.sendMessage({ type: "AUTO_SOLVE", prompt: buildAutoSolvePrompt(), imageUrls });
     if (!result?.ok) throw new Error(result?.error || "Не удалось получить ответ от endpoint.");

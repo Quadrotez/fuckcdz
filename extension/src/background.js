@@ -94,7 +94,6 @@ function providerHeaders(settings) {
 }
 async function providerFetch(url, settings, init = {}) {
   const config = providerConfig(settings);
-  if (api.permissions?.request && !(await api.permissions.request({ origins: [config.originPattern] }))) throw new Error("Браузер не разрешил запрос к выбранному endpoint.");
   return fetch(url, { ...init, headers: { ...providerHeaders(settings), ...(init.headers || {}) } });
 }
 function detectVision(model) {
