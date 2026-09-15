@@ -85,3 +85,10 @@ th { background: #eef3ff; }
 .submit-status.error { color: #b42318; }
 @media (max-width: 700px) { .topbar { flex-direction: column; } .actions { justify-content: flex-start; } .match-row, .group-row { grid-template-columns: 1fr; } .question { padding: 15px; } }
 @media print { :root { background: #fff; } .topbar { padding: 0 0 14px; background: #fff; color: #000; } .actions, .notice, .instruction, .answer-area input, .answer-area select, .option-bank, .order-controls, .summary, .submit-footer, #prompt-dialog, #paste-dialog { display: none !important; } .muted { color: #333; } main { width: 100%; margin: 0; } .questions { display: block; } .question { margin: 0 0 16px; padding: 12px 0; border: 0; box-shadow: none; break-inside: avoid; page-break-inside: avoid; } .question-head { break-after: avoid; page-break-after: avoid; } .media-box img, .media-box video { max-height: 360px; } .choice { border-color: #cbd5e3; } .chip { border-color: #555; background: #fff; color: #000; } }
+
+.string-multiple-list { display: grid; gap: 8px; margin-bottom: 8px; }
+.string-multiple-row { display: flex; align-items: center; gap: 8px; }
+.string-multiple-row .text-answer { flex: 1; }
+.add-string-answer { margin-top: 4px; border: 1px solid #cdd6e5; background: #fff; color: #315fc1; }
+.choice .media-box { margin: 10px 0 0; text-align: left; }
+.choice .media-box img { max-height: 260px; margin: 0; }

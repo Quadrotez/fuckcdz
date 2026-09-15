@@ -7,6 +7,7 @@ const TYPE_HELP = {
   "answer/multiple": "Выберите все подходящие варианты ответа.",
   "answer/free": "Введите ответ текстом. Если нужно, используйте несколько строк.",
   "answer/string": "Введите текстовый ответ в поле.",
+  "answer/string/multiple": "Введите один или несколько текстовых ответов. Добавьте отдельное поле для каждого ответа.",
   "answer/number": "Введите числовой ответ.",
   "answer/order": "Расположите шаги решения в правильной последовательности: от исходного условия к итоговому ответу.",
   "answer/match": "Сопоставьте элементы левой и правой части. Для каждого элемента выберите соответствующую пару.",
@@ -99,6 +100,14 @@ function renderMedia(element) {
   if (element.description) { const caption = document.createElement("div"); caption.className = "media-caption"; caption.textContent = element.description; media.append(caption); }
   return media;
 }
+function appendOptionContent(parent, option) {
+  if (!isObject(option)) { appendRich(parent, option); return; }
+  if (option.text) parent.append(textNode(option.text));
+  for (const content of Array.isArray(option.content) ? option.content : []) {
+    const media = renderMedia(content);
+    if (media) parent.append(media); else appendRich(parent, content);
+  }
+}
 function renderQuestion(parent, elements) {
   const wrapper = document.createElement("div"); wrapper.className = "question-content";
   for (const element of Array.isArray(elements) ? elements : []) {
@@ -123,7 +132,7 @@ function makeChoice(option, inputType, taskId, value, labelPrefix = "") {
     } else state.answers[taskId] = value;
     persistAnswers();
   });
-  const body = document.createElement("span"); if (labelPrefix) { const prefix = document.createElement("b"); prefix.textContent = labelPrefix; body.append(prefix, textNode(" ")); } appendRich(body, option);
+  const body = document.createElement("span"); if (labelPrefix) { const prefix = document.createElement("b"); prefix.textContent = labelPrefix; body.append(prefix, textNode(" ")); } appendOptionContent(body, option);
   label.append(input, body); return label;
 }
 function renderSimpleOptions(container, task, multiple = false) {
@@ -135,6 +144,23 @@ function renderSimpleOptions(container, task, multiple = false) {
 function renderTextInput(container, task, numeric = false) {
   const input = document.createElement("input"); input.className = "text-answer"; input.type = numeric ? "number" : "text"; input.placeholder = numeric ? "Введите число" : "Введите ответ"; input.value = state.answers[task.id] || "";
   input.addEventListener("input", () => { state.answers[task.id] = input.value; persistAnswers(); }); container.append(input);
+}
+function renderMultipleStringInputs(container, task) {
+  const list = document.createElement("div"); list.className = "string-multiple-list";
+  const values = Array.isArray(state.answers[task.id]) ? [...state.answers[task.id]] : [""];
+  function redraw() {
+    list.replaceChildren();
+    values.forEach((value, index) => {
+      const row = document.createElement("div"); row.className = "string-multiple-row";
+      const input = document.createElement("input"); input.className = "text-answer"; input.type = "text"; input.placeholder = `Ответ ${index + 1}`; input.value = value || "";
+      input.addEventListener("input", () => { values[index] = input.value; state.answers[task.id] = values; persistAnswers(); });
+      row.append(input);
+      if (values.length > 1) { const remove = document.createElement("button"); remove.type = "button"; remove.className = "tiny"; remove.textContent = "Удалить"; remove.addEventListener("click", () => { values.splice(index, 1); if (!values.length) values.push(""); state.answers[task.id] = values; persistAnswers(); redraw(); }); row.append(remove); }
+      list.append(row);
+    });
+  }
+  const add = document.createElement("button"); add.type = "button"; add.className = "tiny add-string-answer"; add.textContent = "Добавить ответ"; add.addEventListener("click", () => { values.push(""); state.answers[task.id] = values; persistAnswers(); redraw(); });
+  redraw(); container.append(list, add);
 }
 function renderOrder(container, task) {
   const list = document.createElement("div"); list.className = "order-list";
@@ -231,6 +257,7 @@ function renderAnswer(container, task) {
   if (type === "answer/single") renderSimpleOptions(container, task, false);
   else if (type === "answer/multiple") renderSimpleOptions(container, task, true);
   else if (type === "answer/free" || type === "answer/string") renderTextInput(container, task, false);
+  else if (type === "answer/string/multiple") renderMultipleStringInputs(container, task);
   else if (type === "answer/number") renderTextInput(container, task, true);
   else if (type === "answer/order") renderOrder(container, task);
   else if (type === "answer/match") renderMatch(container, task);
@@ -245,6 +272,7 @@ function buildSubmitPayload(task) {
   const value = state.answers[task.id];
   if (type === "answer/single") return value ? { "@answer_type": type, id: value } : null;
   if (type === "answer/free" || type === "answer/string") return value != null && String(value).trim() ? { "@answer_type": type, string: String(value) } : null;
+  if (type === "answer/string/multiple") { const answers = Array.isArray(value) ? value.map((item) => String(item ?? "").trim()).filter(Boolean) : []; return answers.length ? { "@answer_type": type, answers } : null; }
   if (type === "answer/number") return value != null && String(value).trim() ? { "@answer_type": type, number: Number(value) } : null;
   return null;
 }
@@ -304,6 +332,10 @@ function normalizeImportedAnswer(task, value) {
     return value.map((item) => { const id = findOptionId(task, item); if (id == null) throw new Error(`не найден вариант для задания ${task.id}`); return id; });
   }
   if (type === "answer/number") return value === null || value === "" ? "" : String(value);
+  if (type === "answer/string/multiple") {
+    if (!Array.isArray(value)) throw new Error(`для задания ${task.id} нужен массив строк`);
+    return value.map((item) => String(item ?? "").trim()).filter(Boolean);
+  }
   if (type === "answer/gap/text/input") {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`для задания ${task.id} нужен объект полей`);
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [String(key), String(item ?? "")]));
@@ -354,7 +386,7 @@ document.querySelector("#finish").addEventListener("click", async () => {
 });
 document.querySelector("#copy").addEventListener("click", async () => { const text = [...document.querySelectorAll(".question")].map((node) => node.innerText).join("\n\n"); await navigator.clipboard.writeText(text); document.querySelector("#copy").textContent = "Скопировано"; setTimeout(() => { document.querySelector("#copy").textContent = "Копировать текст"; }, 1500); });
 document.querySelector("#export").addEventListener("click", () => { if (!state.snapshot?.response) return alert("Сначала открой тест и начни попытку."); const challenge = String(state.snapshot.url || "").match(/challenge\/(\d+)/)?.[1] || "test"; downloadJson(`mesh-test-${challenge}.json`, exportPayload()); });
-document.querySelector("#prompt").addEventListener("click", () => { if (!state.snapshot?.response) return alert("Сначала открой тест и начни попытку."); const payload = exportPayload(); payload.answers = {}; const blankAnswer = (type) => { if (type === "answer/multiple" || type === "answer/order") return []; if (type === "answer/match" || type === "answer/groups" || type === "answer/gap/text/input") return {}; if (type === "answer/number") return null; return ""; }; const answerTemplate = Object.fromEntries(payload.tasks.map((task) => [String(task.id), blankAnswer(task.answer?.type)])); const instructions = `Ты решаешь тест по данным ниже. Твоя задача — вернуть ответы для последующего импорта в расширение FuckCDZ. Ответ должен содержать РОВНО один JSON-объект и ничего больше: без Markdown, тройных кавычек, пояснений, приветствия, правильных решений вне JSON и дополнительных ключей.\n\nСтрогий формат:\n{\n  "answers": ${JSON.stringify(answerTemplate, null, 2)}\n}\n\nИспользуй этот шаблон как обязательную структуру: сохрани каждый ключ-ID без изменений и замени только значения. Ключи answers должны быть только точными ID заданий из входного JSON; нельзя менять, сокращать или нумеровать эти ID. Для answer/single укажи строковый ID выбранного варианта, а не номер варианта и не текст объяснения. Для answer/multiple укажи массив строковых ID вариантов. Для answer/free и answer/string укажи одну строку. Для answer/number укажи число. Для answer/order укажи массив строковых ID в правильном порядке. Для answer/match и answer/groups укажи объект, где ключи и значения — строковые ID элементов из задания. Для answer/gap/text/input укажи объект с индексами полей (например, {"0":"ответ", "1":"ответ"}). Если ответ невозможно определить, оставь значение пустым согласно типу. Не добавляй ключи right_answer, explanation, solution, confidence, tasks или другие поля. Перед отправкой проверь, что результат является валидным JSON и начинается с {, а не с текста.`; document.querySelector("#prompt-text").value = `${instructions}\n\nДанные теста:\n${JSON.stringify(payload, null, 2)}`; document.querySelector("#prompt-dialog").showModal(); });
+document.querySelector("#prompt").addEventListener("click", () => { if (!state.snapshot?.response) return alert("Сначала открой тест и начни попытку."); const payload = exportPayload(); payload.answers = {}; const blankAnswer = (type) => { if (type === "answer/multiple" || type === "answer/order" || type === "answer/string/multiple") return []; if (type === "answer/match" || type === "answer/groups" || type === "answer/gap/text/input") return {}; if (type === "answer/number") return null; return ""; }; const answerTemplate = Object.fromEntries(payload.tasks.map((task) => [String(task.id), blankAnswer(task.answer?.type)])); const instructions = `Ты решаешь тест по данным ниже. Твоя задача — вернуть ответы для последующего импорта в расширение FuckCDZ. Ответ должен содержать РОВНО один JSON-объект и ничего больше: без Markdown, тройных кавычек, пояснений, приветствия, правильных решений вне JSON и дополнительных ключей.\n\nСтрогий формат:\n{\n  "answers": ${JSON.stringify(answerTemplate, null, 2)}\n}\n\nИспользуй этот шаблон как обязательную структуру: сохрани каждый ключ-ID без изменений и замени только значения. Ключи answers должны быть только точными ID заданий из входного JSON; нельзя менять, сокращать или нумеровать эти ID. Для answer/single укажи строковый ID выбранного варианта, а не номер варианта и не текст объяснения. Для answer/multiple укажи массив строковых ID вариантов. Для answer/free и answer/string укажи одну строку. Для answer/string/multiple укажи массив строковых ответов. Для answer/number укажи число. Для answer/order укажи массив строковых ID в правильном порядке. Для answer/match и answer/groups укажи объект, где ключи и значения — строковые ID элементов из задания. Для answer/gap/text/input укажи объект с индексами полей (например, {"0":"ответ", "1":"ответ"}). Если ответ невозможно определить, оставь значение пустым согласно типу. Не добавляй ключи right_answer, explanation, solution, confidence, tasks или другие поля. Перед отправкой проверь, что результат является валидным JSON и начинается с {, а не с текста.`; document.querySelector("#prompt-text").value = `${instructions}\n\nДанные теста:\n${JSON.stringify(payload, null, 2)}`; document.querySelector("#prompt-dialog").showModal(); });
 document.querySelector("#copy-prompt").addEventListener("click", async () => { await navigator.clipboard.writeText(document.querySelector("#prompt-text").value); document.querySelector("#copy-prompt").textContent = "Скопировано"; setTimeout(() => { document.querySelector("#copy-prompt").textContent = "Копировать промпт"; }, 1500); });
 document.querySelector("#import").addEventListener("click", () => document.querySelector("#import-file").click());
 document.querySelector("#import-file").addEventListener("change", async (event) => { const file = event.target.files?.[0]; event.target.value = ""; if (!file) return; try { await importAnswers(file); } catch (error) { alert(`Не удалось импортировать ответы: ${error?.message || error}`); } });
