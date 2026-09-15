@@ -103,3 +103,6 @@ html.dark .question-content, html.dark .content-block, html.dark .choice > span,
 html.dark input, html.dark select, html.dark textarea { background:#111827; color:#e5e7eb; border-color:#475569; }
 html.dark .summary, html.dark .muted, html.dark .submit-status { color:#aab7ca; }
 html.dark .theme-toggle { background:#25324a; color:#fef3c7; border-color:#3b4d6d; }
+
+.auto-solve-status { flex: 1 1 100%; min-height: 18px; margin: 2px 0 0; color: #a9c5ff; font-size: 13px; }
+html.dark .auto-solve-status { color: #cbd5e1; }
