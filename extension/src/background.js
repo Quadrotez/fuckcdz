@@ -76,6 +76,27 @@ async function getDebugLog() {
   return result[DEBUG_KEY] || { version: 1, events: [] };
 }
 
+async function autoSolve(prompt) {
+  const result = await api.storage.local.get("autoSolve");
+  const settings = result.autoSolve || {};
+  if (settings.provider !== "openai-compatible") return { ok: false, error: "Выбранный провайдер пока не поддерживается." };
+  const host = String(settings.host || "").trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
+  if (!host) return { ok: false, error: "В настройках авторешения не указан хост." };
+  const protocol = settings.protocol === "http" ? "http" : "https";
+  const port = String(settings.port || "").trim();
+  const path = String(settings.path || "/v1/chat/completions").trim() || "/v1/chat/completions";
+  const url = `${protocol}://${host}${port ? `:${port}` : ""}${path.startsWith("/") ? path : `/${path}`}`;
+  const headers = { "Content-Type": "application/json" };
+  if (settings.authType === "bearer" && settings.apiKey) headers.Authorization = `Bearer ${settings.apiKey}`;
+  if (settings.authType === "x-api-key" && settings.apiKey) headers["X-API-Key"] = settings.apiKey;
+  const response = await fetch(url, { method: "POST", headers, body: JSON.stringify({ model: settings.model || "gpt-4o-mini", temperature: 0, messages: [{ role: "system", content: "Return only valid JSON. Do not include Markdown fences or explanations." }, { role: "user", content: String(prompt || "") }] }) });
+  const raw = await response.text();
+  if (!response.ok) return { ok: false, error: `Endpoint вернул HTTP ${response.status}: ${raw.slice(0, 300)}` };
+  let data; try { data = JSON.parse(raw); } catch { return { ok: false, error: "Endpoint вернул невалидный JSON." }; }
+  const content = data?.choices?.[0]?.message?.content ?? data?.output_text ?? data?.content ?? data;
+  return { ok: true, content: typeof content === "string" ? content : JSON.stringify(content) };
+}
+
 async function getLatestExam() {
   const result = await api.storage.local.get("latestExam");
   return result.latestExam || null;
@@ -95,6 +116,7 @@ api.runtime.onMessage.addListener(async (message, sender) => {
   if (message?.type === "DEBUG_EVENT") return appendDebugEvent(message.event || {}, sender?.tab?.id || null);
   if (message?.type === "GET_DEBUG_LOG") return { log: await getDebugLog() };
   if (message?.type === "GET_LATEST_EXAM") return { exam: await getLatestExam() };
+  if (message?.type === "AUTO_SOLVE") { try { return await autoSolve(message.prompt); } catch (error) { return { ok: false, error: error?.message || String(error) }; } }
   if (message?.type === "CLEAR_DEBUG_LOG") return api.storage.local.remove([DEBUG_KEY, "latestExam"]);
   return undefined;
 });

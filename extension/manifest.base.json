@@ -1,7 +1,7 @@
 {
   "name": "FuckCDZ",
   "description": "Собирает задания с открытой страницы МЭШ и показывает их в едином интерфейсе.",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "manifest_version": 3,
   "icons": {
     "16": "icons/icon-16.png",
@@ -20,7 +20,11 @@
       "96": "icons/icon-96.png"
     }
   },
-  "permissions": ["storage", "activeTab", "tabs"],
+  "permissions": [
+    "storage",
+    "activeTab",
+    "tabs"
+  ],
   "host_permissions": [
     "https://school.mos.ru/*",
     "https://dnevnik.mos.ru/*",
@@ -36,20 +40,34 @@
         "https://school.mos.ru/*",
         "https://dnevnik.mos.ru/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://uchebnik.mos.ru/*"],
-      "js": ["debug-content.js"],
+      "matches": [
+        "https://uchebnik.mos.ru/*"
+      ],
+      "js": [
+        "debug-content.js"
+      ],
       "run_at": "document_start"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["page-hook.js"],
-      "matches": ["https://uchebnik.mos.ru/*"]
+      "resources": [
+        "page-hook.js"
+      ],
+      "matches": [
+        "https://uchebnik.mos.ru/*"
+      ]
     }
   ],
-  "options_page": "options.html"
+  "options_page": "options.html",
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ]
 }

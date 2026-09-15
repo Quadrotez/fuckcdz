@@ -372,7 +372,37 @@ async function load() {
   document.querySelector("#summary").textContent = `Групп: ${groups.length}. Заданий: ${tasks.length}. Ответы сохраняются локально в этом браузере.`;
   tasks.forEach((task, index) => container.append(renderTask(task, index)));
 }
+function buildAutoSolvePrompt() {
+  const payload = exportPayload(); payload.answers = {};
+  const blankAnswer = (type) => {
+    if (type === "answer/multiple" || type === "answer/order" || type === "answer/string/multiple") return [];
+    if (type === "answer/match" || type === "answer/groups" || type === "answer/gap/text/input") return {};
+    if (type === "answer/number") return null;
+    return "";
+  };
+  const answerTemplate = Object.fromEntries(payload.tasks.map((task) => [String(task.id), blankAnswer(task.type)]));
+  return `Реши тест по данным ниже. Верни ровно один JSON-объект и ничего кроме него: {"answers": ${JSON.stringify(answerTemplate)}}. Сохрани точные ID заданий. Для answer/single укажи ID варианта; для answer/multiple и answer/order — массив ID; для answer/free и answer/string — строку; для answer/string/multiple — массив строк; для answer/number — число; для answer/match и answer/groups — объект ID-to-ID; для answer/gap/text/input — объект с индексами полей. Не добавляй объяснения, решения или дополнительные ключи.\n\nДанные теста:\n${JSON.stringify(payload, null, 2)}`;
+}
+async function runAutoSolve() {
+  if (!state.snapshot?.response) { alert("Сначала открой тест и начни попытку."); return; }
+  const status = document.querySelector("#auto-solve-status"); const button = document.querySelector("#auto-solve");
+  button.disabled = true; status.textContent = "Отправляю тест на выбранный endpoint…";
+  try {
+    const result = await api.runtime.sendMessage({ type: "AUTO_SOLVE", prompt: buildAutoSolvePrompt() });
+    if (!result?.ok) throw new Error(result?.error || "Не удалось получить ответ от endpoint.");
+    const cleaned = String(result.content || "").trim().replace(/^```(?:json)?/i, "").replace(/```\s*$/i, "").trim();
+    const data = JSON.parse(cleaned); const imported = data.answers && typeof data.answers === "object" ? data.answers : data;
+    const tasks = getTasks(state.snapshot); const byId = new Map(tasks.map((task) => [String(task.id), task])); const next = {}; const errors = [];
+    for (const [taskId, answer] of Object.entries(imported || {})) { const task = byId.get(String(taskId)); if (!task) continue; try { next[taskId] = normalizeImportedAnswer(task, answer); } catch (error) { errors.push(error.message); } }
+    if (!Object.keys(next).length) throw new Error("Endpoint не вернул ни одного подходящего ответа.");
+    state.answers = { ...state.answers, ...next }; persistAnswers(); await load();
+    status.textContent = `Подставлено ответов: ${Object.keys(next).length}${errors.length ? `. Пропущено: ${errors.length}.` : ". Проверьте ответы перед отправкой."}`;
+  } catch (error) { status.textContent = `Авторешение не выполнено: ${error?.message || error}`; }
+  finally { button.disabled = false; }
+}
+
 document.querySelector("#refresh").addEventListener("click", () => load());
+document.querySelector("#auto-solve").addEventListener("click", () => runAutoSolve());
 document.querySelector("#debug").addEventListener("click", () => api.runtime.sendMessage({ type: "OPEN_DEBUG" }));
 document.querySelector("#print").addEventListener("click", () => window.print());
 document.querySelector("#finish").addEventListener("click", async () => {

@@ -92,3 +92,5 @@ th { background: #eef3ff; }
 .add-string-answer { margin-top: 4px; border: 1px solid #cdd6e5; background: #fff; color: #315fc1; }
 .choice .media-box { margin: 10px 0 0; text-align: left; }
 .choice .media-box img { max-height: 260px; margin: 0; }
+
+#auto-solve-status { min-height: 18px; }
