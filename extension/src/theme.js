@@ -1,0 +1,4 @@
+const themeApi = globalThis.browser ?? globalThis.chrome;
+async function applyTheme() { const result = await themeApi.storage.local.get("uiTheme"); const dark = result.uiTheme === "dark"; document.documentElement.classList.toggle("dark", dark); document.querySelectorAll("[data-theme-toggle]").forEach((button) => { button.textContent = dark ? "☀" : "☾"; button.title = dark ? "Светлая тема" : "Тёмная тема"; button.setAttribute("aria-label", button.title); }); }
+async function toggleTheme() { const dark = !document.documentElement.classList.contains("dark"); await themeApi.storage.local.set({ uiTheme: dark ? "dark" : "light" }); await applyTheme(); }
+document.addEventListener("DOMContentLoaded", () => { document.querySelectorAll("[data-theme-toggle]").forEach((button) => button.addEventListener("click", toggleTheme)); applyTheme().catch(() => {}); });

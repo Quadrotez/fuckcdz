@@ -94,3 +94,12 @@ th { background: #eef3ff; }
 .choice .media-box img { max-height: 260px; margin: 0; }
 
 #auto-solve-status { min-height: 18px; }
+
+html.dark { color-scheme:dark; --dark-bg:#111827; --dark-card:#1b2536; --dark-border:#334155; }
+html.dark body { background:var(--dark-bg); color:#e5e7eb; }
+html.dark .topbar { background:#0b1220; }
+html.dark .question, html.dark .choice, html.dark .order-row, html.dark .group-row, html.dark .gap-code, html.dark .option-bank, html.dark .instruction { background:var(--dark-card); border-color:var(--dark-border); color:#e5e7eb; }
+html.dark .question-content, html.dark .content-block, html.dark .choice > span, html.dark .order-row > span:not(.grip) { color:#e5e7eb; }
+html.dark input, html.dark select, html.dark textarea { background:#111827; color:#e5e7eb; border-color:#475569; }
+html.dark .summary, html.dark .muted, html.dark .submit-status { color:#aab7ca; }
+html.dark .theme-toggle { background:#25324a; color:#fef3c7; border-color:#3b4d6d; }

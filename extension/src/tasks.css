@@ -32,3 +32,11 @@ input { flex: 1; min-width: 0; }
 .source-link { margin-top: 4px; color: #315fc1; font-size: 13px; }
 .empty { grid-column: 1 / -1; padding: 42px 20px; border: 1px dashed #c6cfdd; border-radius: 14px; background: #fff; color: #596579; text-align: center; }
 @media (max-width: 640px) { .topbar { flex-direction: column; padding: 24px 16px; } main { width: min(100% - 24px, 1180px); } .toolbar { flex-direction: column; } }
+
+html.dark { color-scheme:dark; }
+html.dark body { background:#111827; color:#e5e7eb; }
+html.dark .topbar { background:#0b1220; }
+html.dark .task-card, html.dark .toolbar { background:#1b2536; border-color:#334155; color:#e5e7eb; }
+html.dark input, html.dark select { background:#111827; color:#e5e7eb; border-color:#475569; }
+html.dark .muted, html.dark .stats { color:#aab7ca; }
+html.dark .theme-toggle { background:#25324a; color:#fef3c7; border-color:#3b4d6d; }

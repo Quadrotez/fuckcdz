@@ -17,6 +17,8 @@ FILES = [
     "tasks.css",
     "tasks.js",
     "options.html",
+    "options.js",
+    "theme.js",
     "debug-content.js",
     "page-hook.js",
     "debug.html",
