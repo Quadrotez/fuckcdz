@@ -73,12 +73,14 @@ def main() -> None:
         },
     }
     gecko.pop("host_permissions", None)
+    gecko.pop("optional_host_permissions", None)
     gecko["permissions"] = [
         *gecko.get("permissions", []),
         "https://school.mos.ru/*",
         "https://dnevnik.mos.ru/*",
         "https://uchebnik.mos.ru/*",
     ]
+    gecko["optional_permissions"] = ["http://*/*", "https://*/*"]
     gecko["background"] = {"scripts": ["background.js"]}
     gecko["web_accessible_resources"] = ["page-hook.js"]
     gecko["browser_specific_settings"] = {
