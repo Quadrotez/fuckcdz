@@ -81,7 +81,9 @@ function appendDebugEvent(event, sourceTabId = null) {
         response: event.response,
       };
     }
-    const assignmentUrl = event.response?.assignment?.url || (String(event.url || "").match(/https:\/\/[^/]+\/exam\/challenge\/[^/]+\/context\/[^/?#]+/) || [])[0];
+    const assignmentUrl = event.response?.assignment?.url
+      || (String(event.url || "").match(/https:\/\/[^/]+\/webtests\/exam\/rest\/secure\/challenge\/assignment\/context\/[^/?#]+\/result/) || [])[0]
+      || (String(event.url || "").match(/https:\/\/[^/]+\/exam\/challenge\/[^/]+\/context\/[^/?#]+/) || [])[0];
     if (assignmentUrl) {
       const latest = update.latestExam || log.latestExam;
       if (latest) update.latestExam = { ...latest, assignmentUrl };

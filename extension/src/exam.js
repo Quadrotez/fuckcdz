@@ -114,6 +114,7 @@ function appendTextWithMath(parent, value) {
 function normalizeMath(value) {
   return value
     .replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, "($1)/($2)")
+    .replace(/\\text\s*\{([^{}]*)\}/g, "$1")
     .replace(/\\sqrt\s*\[([^\]]+)\]\s*\{([^{}]*)\}/g, "($2)^(1/$1)")
     .replace(/\\sqrt\s*\[([^\]]+)\]\s*([^\s,.;!?+={}\[\]()]+)/g, "($2)^(1/$1)")
     .replace(/\\sqrt\s*\{([^{}]*)\}/g, "√($1)")
@@ -192,8 +193,12 @@ function renderMedia(element) {
 function appendOptionContent(parent, option) {
   if (!isObject(option)) { appendRich(parent, option); return; }
   const hasPositions = Array.isArray(option.content) && option.content.some((item) => isObject(item) && Number.isFinite(Number(item.position)));
-  if (option.text && hasPositions) appendPositionedContent(parent, option.text, option.content);
-  else if (option.text) appendTextWithMath(parent, option.text);
+  if (option.text && hasPositions) {
+    appendPositionedContent(parent, option.text, option.content);
+    for (const content of option.content) { const media = renderMedia(content); if (media) parent.append(media); }
+    return;
+  }
+  if (option.text) appendTextWithMath(parent, option.text);
   for (const content of Array.isArray(option.content) ? option.content : []) {
     const media = renderMedia(content);
     if (media) parent.append(media); else appendRich(parent, content);
@@ -255,6 +260,29 @@ function renderMultipleStringInputs(container, task) {
   const add = document.createElement("button"); add.type = "button"; add.className = "tiny add-string-answer"; add.textContent = "Добавить ответ"; add.addEventListener("click", () => { values.push(""); state.answers[task.id] = values; persistAnswers(); redraw(); });
   redraw(); container.append(list, add);
 }
+function createRichSelect(options, selectedValue, placeholder, onChange) {
+  const root = document.createElement("div"); root.className = "rich-select";
+  const trigger = document.createElement("button"); trigger.type = "button"; trigger.className = "rich-select-trigger"; trigger.setAttribute("aria-haspopup", "listbox"); trigger.setAttribute("aria-expanded", "false");
+  const menu = document.createElement("div"); menu.className = "rich-select-menu"; menu.setAttribute("role", "listbox"); menu.hidden = true;
+  let current = String(selectedValue || "");
+  function setOpen(open) { menu.hidden = !open; trigger.setAttribute("aria-expanded", String(open)); root.classList.toggle("open", open); }
+  function renderTrigger() {
+    trigger.replaceChildren();
+    const selected = options.find((item) => String(item.value) === current);
+    if (selected) appendOptionContent(trigger, selected.option);
+    else { const text = document.createElement("span"); text.className = "rich-select-placeholder"; text.textContent = placeholder; trigger.append(text); }
+  }
+  options.forEach((item) => {
+    const option = document.createElement("button"); option.type = "button"; option.className = "rich-select-option"; option.setAttribute("role", "option"); option.dataset.value = String(item.value);
+    option.setAttribute("aria-selected", String(String(item.value) === current)); appendOptionContent(option, item.option);
+    option.addEventListener("click", () => { current = String(item.value); renderTrigger(); menu.querySelectorAll(".rich-select-option").forEach((node) => node.setAttribute("aria-selected", String(node.dataset.value === current))); setOpen(false); onChange(current); });
+    menu.append(option);
+  });
+  trigger.addEventListener("click", () => setOpen(menu.hidden));
+  trigger.addEventListener("keydown", (event) => { if (["Enter", " ", "ArrowDown"].includes(event.key)) { event.preventDefault(); setOpen(true); menu.querySelector(".rich-select-option")?.focus(); } });
+  document.addEventListener("click", (event) => { if (!root.contains(event.target)) setOpen(false); });
+  renderTrigger(); root.append(trigger, menu); return root;
+}
 function renderOrder(container, task) {
   const list = document.createElement("div"); list.className = "order-list";
   const values = Array.isArray(state.answers[task.id]) ? state.answers[task.id] : (task.answer?.options || []).map((_, index) => String(index));
@@ -274,7 +302,7 @@ function renderMatch(container, task) {
   const answer = task.answer || {}; const sides = matchSides(answer); const left = sides.sources; const right = sides.targets;
   const values = state.answers[task.id] || {};
   const table = document.createElement("div"); table.className = "match-list";
-  left.forEach((source, index) => { const row = document.createElement("label"); row.className = "match-row"; const sourceNode = document.createElement("span"); appendOptionContent(sourceNode, source); const select = document.createElement("select"); select.innerHTML = `<option value="">Выберите соответствие…</option>`; right.forEach((target, targetIndex) => { const option = document.createElement("option"); option.value = String(target.id ?? targetIndex); appendTextWithMath(option, optionLabel(target)); select.append(option); }); select.value = values[String(source.id ?? index)] || ""; select.addEventListener("change", () => { values[String(source.id ?? index)] = select.value; state.answers[task.id] = values; persistAnswers(); }); row.append(sourceNode, select); table.append(row); });
+  left.forEach((source, index) => { const row = document.createElement("div"); row.className = "match-row"; const sourceNode = document.createElement("span"); appendOptionContent(sourceNode, source); const picker = createRichSelect(right.map((target, targetIndex) => ({ value: String(target.id ?? targetIndex), option: target })), values[String(source.id ?? index)], "Выберите соответствие…", (value) => { values[String(source.id ?? index)] = value; state.answers[task.id] = values; persistAnswers(); }); row.append(sourceNode, picker); table.append(row); });
   container.append(table);
   const printOptions = document.createElement("div"); printOptions.className = "print-answer-options";
   printOptions.textContent = `Варианты соответствия: ${right.map((item, index) => `${index + 1}. ${optionLabel(item)}`).join("; ")}`;
@@ -290,13 +318,10 @@ function renderGroups(container, task) {
   const values = state.answers[task.id] || {};
   const list = document.createElement("div"); list.className = "group-rows";
   options.forEach((option, index) => {
-    const row = document.createElement("label"); row.className = "group-row";
+    const row = document.createElement("div"); row.className = "group-row";
     const statement = document.createElement("span"); statement.textContent = optionLabel(option);
-    const select = document.createElement("select"); select.innerHTML = `<option value="">Выберите группу…</option>`;
-    groups.forEach((group, groupIndex) => { const item = document.createElement("option"); item.value = String(group.id ?? groupIndex); item.textContent = optionLabel(group); select.append(item); });
-    select.value = values[String(option.id ?? index)] || "";
-    select.addEventListener("change", () => { values[String(option.id ?? index)] = select.value; state.answers[task.id] = values; persistAnswers(); });
-    row.append(statement, select); list.append(row);
+    const picker = createRichSelect(groups.map((group, groupIndex) => ({ value: String(group.id ?? groupIndex), option: group })), values[String(option.id ?? index)], "Выберите группу…", (value) => { values[String(option.id ?? index)] = value; state.answers[task.id] = values; persistAnswers(); });
+    row.append(statement, picker); list.append(row);
   });
   container.append(list);
   const printOptions = document.createElement("div"); printOptions.className = "print-answer-options";
@@ -568,7 +593,14 @@ document.querySelector("#finish").addEventListener("click", async () => {
   const button = document.querySelector("#finish"); button.disabled = true; button.textContent = "Завершаю…";
   const result = await api.runtime.sendMessage({ type: "COMPLETE_EXAM_ATTEMPT", payload: { challenge_id: challengeId } });
   button.disabled = false; button.textContent = result?.ok ? "Тестирование завершено" : "Подтвердить и завершить тестирование";
-  if (result?.ok) { const assignmentUrl = String(state.snapshot?.assignmentUrl || state.snapshot?.response?.assignment?.url || "").replace(/\/$/, ""); const results = document.querySelector("#results"); if (assignmentUrl) { results.href = assignmentUrl; results.hidden = false; } else alert("Тест завершён, но URL контекста результатов ещё не найден. Открой страницу МЭШ с результатами из истории попыток."); }
+  if (result?.ok) {
+    let latest = await api.runtime.sendMessage({ type: "GET_LATEST_EXAM" });
+    let assignmentUrl = String(latest?.exam?.assignmentUrl || state.snapshot?.assignmentUrl || state.snapshot?.response?.assignment?.url || "").replace(/\/$/, "");
+    if (!assignmentUrl) { await sleep(750); latest = await api.runtime.sendMessage({ type: "GET_LATEST_EXAM" }); assignmentUrl = String(latest?.exam?.assignmentUrl || "").replace(/\/$/, ""); }
+    const results = document.querySelector("#results");
+    if (assignmentUrl) { results.href = assignmentUrl; results.hidden = false; results.textContent = "Перейти к результатам"; }
+    else alert("Тест завершён, но URL контекста результатов ещё не найден. Открой страницу МЭШ с результатами из истории попыток.");
+  }
   else alert(`Не удалось завершить тест: ${result?.error || `HTTP ${result?.status || "неизвестно"}`}`);
 });
 document.querySelector("#copy").addEventListener("click", async () => { const text = [...document.querySelectorAll(".question")].map((node) => node.innerText).join("\n\n"); await navigator.clipboard.writeText(text); document.querySelector("#copy").textContent = "Скопировано"; setTimeout(() => { document.querySelector("#copy").textContent = "Копировать текст"; }, 1500); });
