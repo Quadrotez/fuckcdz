@@ -2,6 +2,7 @@ name: Build and release
 
 on:
   push:
+    branches: [master]
     tags: ["v*.*.*"]
   workflow_dispatch:
 
@@ -9,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,6 +23,24 @@ jobs:
           for file in extension/src/*.js; do node --check "$file"; done
       - name: Build browser archives
         run: python scripts/build_extension.py
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuckcdz-browser-archives
+          path: |
+            dist/fuckcdz-chromium.zip
+            dist/fuckcdz-gecko.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: fuckcdz-browser-archives
+          path: dist
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
