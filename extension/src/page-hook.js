@@ -77,6 +77,18 @@
     return result;
   }
 
+  function mergeHeaders(...sources) {
+    const result = {};
+    for (const source of sources) {
+      for (const [name, value] of headerEntries(source)) {
+        const lower = String(name).toLowerCase();
+        for (const existing of Object.keys(result)) if (existing.toLowerCase() === lower) delete result[existing];
+        result[String(name)] = String(value);
+      }
+    }
+    return result;
+  }
+
   function authDiagnostics(headers = latestAnswerHeaders) {
     const auth = authHeaders(headers);
     const authorization = auth.authorization || "";
@@ -207,7 +219,7 @@
     try {
       response = await nativeFetch.apply(this, arguments);
       if (response.ok && /\/webtests\/exam\/rest\/secure\//.test(url)) {
-        latestAnswerHeaders = { ...latestAnswerHeaders, ...authHeaders(init.headers || request?.headers) };
+        latestAnswerHeaders = mergeHeaders(latestAnswerHeaders, authHeaders(init.headers || request?.headers));
       }
       emit({
         kind: "fetch",
@@ -259,13 +271,15 @@
       }
       const authBefore = authDiagnostics(latestAnswerHeaders);
       let refreshAuth = null;
-      if (request.url.includes("/webtests/exam/rest/secure/") && this.status >= 200 && this.status < 300) latestAnswerHeaders = { ...latestAnswerHeaders, ...request.headers };
+      if (request.url.includes("/webtests/exam/rest/secure/") && this.status >= 200 && this.status < 300) latestAnswerHeaders = mergeHeaders(latestAnswerHeaders, request.headers);
       if (request.url.includes("/acl/api/session/v2/refresh") && this.status >= 200 && this.status < 300) {
         try {
           const session = this.responseType === "json" && this.response && typeof this.response === "object" ? this.response : JSON.parse(this.responseText || "{}");
-          if (session.profileId) latestAnswerHeaders["Profile-Id"] = String(session.profileId);
           const token = session.accessTokenEom || session.accessTokenAupd;
-          if (token) latestAnswerHeaders.Authorization = `Bearer ${token}`;
+          latestAnswerHeaders = mergeHeaders(latestAnswerHeaders, {
+            ...(session.profileId ? { "profile-id": String(session.profileId) } : {}),
+            ...(token ? { authorization: `Bearer ${token}` } : {})
+          });
           refreshAuth = { parsed: true, tokenField: session.accessTokenEom ? "accessTokenEom" : session.accessTokenAupd ? "accessTokenAupd" : null, profileIdPresent: Boolean(session.profileId), authAfter: authDiagnostics(latestAnswerHeaders) };
         } catch (error) {
           refreshAuth = { parsed: false, parseError: String(error?.message || error), responseType: this.responseType || "text" };
