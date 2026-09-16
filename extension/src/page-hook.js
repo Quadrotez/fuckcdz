@@ -190,9 +190,10 @@
       if (request.url.includes("/webtests/exam/rest/secure/") && this.status >= 200 && this.status < 300) latestAnswerHeaders = { ...latestAnswerHeaders, ...request.headers };
       if (request.url.includes("/acl/api/session/v2/refresh") && this.status >= 200 && this.status < 300) {
         try {
-          const session = JSON.parse(this.responseText || "{}");
+          const session = this.responseType === "json" && this.response && typeof this.response === "object" ? this.response : JSON.parse(this.responseText || "{}");
           if (session.profileId) latestAnswerHeaders["Profile-Id"] = String(session.profileId);
-          if (session.accessTokenEom) latestAnswerHeaders.Authorization = `Bearer ${session.accessTokenEom}`;
+          const token = session.accessTokenEom || session.accessTokenAupd;
+          if (token) latestAnswerHeaders.Authorization = `Bearer ${token}`;
         } catch {}
       }
       emit({
