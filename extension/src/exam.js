@@ -94,7 +94,7 @@ function appendMathMarkup(parent, value) {
 function appendPositionedContent(parent, text, content) {
   const items = content.filter((item) => isObject(item) && Number.isFinite(Number(item.position))).sort((a, b) => Number(a.position) - Number(b.position));
   let cursor = 0;
-  items.forEach((item) => { const position = Math.max(cursor, Math.min(String(text).length, Number(item.position))); if (position > cursor) parent.append(textNode(String(text).slice(cursor, position))); appendRich(parent, item); cursor = position; });
+  items.forEach((item) => { const rawPosition = Number(item.position); const source = String(text); const position = Math.max(cursor, Math.min(source.length, rawPosition)); if (position > cursor) parent.append(textNode(source.slice(cursor, position))); if (rawPosition > source.length && cursor === source.length && source && !/\s$/.test(source)) parent.append(textNode(" ")); appendRich(parent, item); cursor = position; });
   if (cursor < String(text).length) parent.append(textNode(String(text).slice(cursor)));
 }
 function appendTextWithMath(parent, value) {
@@ -205,8 +205,10 @@ function renderQuestion(parent, elements) {
     if (!isObject(element)) continue;
     const media = renderMedia(element); if (media) { wrapper.append(media); continue; }
     const block = document.createElement("div"); block.className = "content-block";
-    if (element.text && Array.isArray(element.content) && element.content.some((item) => isObject(item) && Number.isFinite(Number(item.position)))) appendPositionedContent(block, element.text, element.content);
-    else appendRich(block, element);
+    const content = Array.isArray(element.content) ? element.content : [];
+    const positioned = content.some((item) => isObject(item) && Number.isFinite(Number(item.position)));
+    if (element.text) { if (positioned) appendPositionedContent(block, element.text, content); else appendTextWithMath(block, element.text); }
+    if (!positioned) content.forEach((item) => { const contentMedia = renderMedia(item); if (contentMedia) block.append(contentMedia); else appendRich(block, item); });
     if (!block.textContent.trim() && !block.querySelector(".math, table")) continue;
     wrapper.append(block);
   }
