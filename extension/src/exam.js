@@ -491,8 +491,9 @@ async function applyImportedAnswers(next) {
       if (controller.signal.aborted) throw new DOMException("Импорт отменён", "AbortError");
       const [taskId, answer] = entries[index]; state.answers[taskId] = answer; persistAnswers();
       const task = byId.get(taskId); const button = document.querySelector(`#task-${CSS.escape(taskId)} .submit-answer`); const status = button?.parentElement?.querySelector(".submit-status");
-      if (task && button && status) { const result = await submitTask(task, button, status); if (!result?.ok) failures.push(`${taskId}: ${result?.error || `HTTP ${result?.status || "неизвестно"}`}`); }
-      document.querySelector("#import-progress").value = index + 1; document.querySelector("#import-progress-label").textContent = `Отправлено: ${index + 1} из ${entries.length}`;
+      if (!task || !button || !status) failures.push(`${taskId}: элемент задания или кнопка отправки не найдены`);
+      else { const result = await submitTask(task, button, status); if (!result?.ok) failures.push(`${taskId}: ${result?.error || `HTTP ${result?.status || "неизвестно"}`}`); }
+      document.querySelector("#import-progress").value = index + 1; document.querySelector("#import-progress-label").textContent = `Обработано: ${index + 1} из ${entries.length}`;
       if (interval && index < entries.length - 1) await sleep(interval);
     }
     await load(); const report = parseImportedText.lastReport; alert(failures.length ? `Импорт завершён с ошибками: подтверждено ${entries.length - failures.length} из ${entries.length}.\n\n${failures.join("\n")}` : `Импорт и подтверждение завершены: ${report?.imported || entries.length} из ${report?.total || "?"}.`);
