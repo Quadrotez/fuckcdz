@@ -149,7 +149,7 @@ function appendRich(parent, value) {
   if (typeof value === "string" || typeof value === "number") { appendTextWithMath(parent, value); return; }
   if (!isObject(value)) return;
   const formula = mathSource(value);
-  if (formula != null) { parent.append(mathElement(Array.isArray(formula) ? formula.map(contentToPlain).join("") : formula, Boolean(value.is_multiline || value.display || value.displayMode))); return; }
+  if (formula != null) { parent.append(mathElement(Array.isArray(formula) ? formula.map(contentToPlain).join("") : formula, Boolean(value.display || value.displayMode))); return; }
   const type = String(value.type || "");
   if (type.includes("table")) { parent.append(renderTableValue(value.table)); return; }
   if (value.text && Array.isArray(value.content) && value.content.some((item) => isObject(item) && Number.isFinite(Number(item.position)))) appendPositionedContent(parent, value.text, value.content);
