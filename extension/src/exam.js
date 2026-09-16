@@ -458,9 +458,11 @@ function findOptionId(task, value) {
 }
 function matchSides(answer) {
   const options = Array.isArray(answer?.options) ? answer.options : [];
-  const sources = Array.isArray(answer?.mix_source) ? answer.mix_source : Array.isArray(answer?.sources) ? answer.sources : options.filter((item) => String(item?.type || "").includes("/source"));
-  const targets = Array.isArray(answer?.mix_target) ? answer.mix_target : Array.isArray(answer?.targets) ? answer.targets : Array.isArray(answer?.groups) ? answer.groups : options.filter((item) => String(item?.type || "").includes("/target"));
-  return { sources: sources.length ? sources : options, targets: targets.length ? targets : options };
+  const apiSources = Array.isArray(answer?.mix_source) ? answer.mix_source : Array.isArray(answer?.sources) ? answer.sources : options.filter((item) => String(item?.type || "").includes("/source"));
+  const apiTargets = Array.isArray(answer?.mix_target) ? answer.mix_target : Array.isArray(answer?.targets) ? answer.targets : Array.isArray(answer?.groups) ? answer.groups : options.filter((item) => String(item?.type || "").includes("/target"));
+  // In the MЭШ payload, the key is the displayed target (e.g. country),
+  // while the selected value is the API source (e.g. European subregion).
+  return { sources: apiTargets.length ? apiTargets : options, targets: apiSources.length ? apiSources : options };
 }
 function normalizeImportedAnswer(task, value) {
   const type = task.answer?.type;
