@@ -269,11 +269,7 @@ function renderOrder(container, task) {
   redraw(); container.append(list);
 }
 function renderMatch(container, task) {
-  const answer = task.answer || {}; const sources = answer.mix_source || answer.sources || [];
-  const targets = answer.mix_target || answer.targets || [];
-  const options = answer.options || [];
-  const left = sources.length ? sources : options.slice(0, Math.ceil(options.length / 2));
-  const right = targets.length ? targets : options.slice(Math.ceil(options.length / 2));
+  const answer = task.answer || {}; const sides = matchSides(answer); const left = sides.sources; const right = sides.targets;
   const values = state.answers[task.id] || {};
   const table = document.createElement("div"); table.className = "match-list";
   left.forEach((source, index) => { const row = document.createElement("label"); row.className = "match-row"; const sourceNode = document.createElement("span"); appendOptionContent(sourceNode, source); const select = document.createElement("select"); select.innerHTML = `<option value="">Выберите соответствие…</option>`; right.forEach((target, targetIndex) => { const option = document.createElement("option"); option.value = String(target.id ?? targetIndex); appendTextWithMath(option, optionLabel(target)); select.append(option); }); select.value = values[String(source.id ?? index)] || ""; select.addEventListener("change", () => { values[String(source.id ?? index)] = select.value; state.answers[task.id] = values; persistAnswers(); }); row.append(sourceNode, select); table.append(row); });
@@ -421,6 +417,12 @@ function findOptionId(task, value) {
   const match = options.find((option) => normalizeAnswerText(optionLabel(option)) === wanted);
   return match ? String(match.id ?? options.indexOf(match)) : null;
 }
+function matchSides(answer) {
+  const options = Array.isArray(answer?.options) ? answer.options : [];
+  const sources = Array.isArray(answer?.mix_source) ? answer.mix_source : Array.isArray(answer?.sources) ? answer.sources : options.filter((item) => String(item?.type || "").includes("/source"));
+  const targets = Array.isArray(answer?.mix_target) ? answer.mix_target : Array.isArray(answer?.targets) ? answer.targets : Array.isArray(answer?.groups) ? answer.groups : options.filter((item) => String(item?.type || "").includes("/target"));
+  return { sources: sources.length ? sources : options, targets: targets.length ? targets : options };
+}
 function normalizeImportedAnswer(task, value) {
   const type = task.answer?.type;
   if (type === "answer/single") {
@@ -440,9 +442,7 @@ function normalizeImportedAnswer(task, value) {
   if (["answer/free", "answer/string"].includes(type)) return String(value ?? "");
   if (type === "answer/match" || type === "answer/groups") {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`для задания ${task.id} нужен объект соответствий`);
-    const answer = task.answer || {};
-    const sources = answer.mix_source || answer.sources || answer.options || [];
-    const targets = answer.mix_target || answer.targets || answer.groups || answer.options || [];
+    const { sources, targets } = matchSides(task.answer || {});
     const resolve = (items, item) => {
       const raw = String(item?.id ?? item?.value ?? item ?? "").trim();
       const exact = items.find((candidate, index) => String(candidate?.id ?? index) === raw);
