@@ -455,7 +455,7 @@ function normalizeImportedAnswer(task, value) {
       const found = items.find((candidate) => normalizeAnswerText(optionLabel(candidate)) === wanted);
       return found ? String(found.id ?? items.indexOf(found)) : raw;
     };
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [resolve(sources, key), resolve(targets, item)]));
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [resolve(sources, key), (Array.isArray(item) ? item : [item]).map((target) => resolve(targets, target))]));
   }
   if (type === "answer/gap/text" || type === "answer/gap/match/text" || type === "answer/gap/text/input") {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`для задания ${task.id} нужен объект полей`);
