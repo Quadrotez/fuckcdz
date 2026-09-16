@@ -91,6 +91,12 @@ function appendMathMarkup(parent, value) {
   }
   if (cursor < source.length) parent.append(textNode(source.slice(cursor)));
 }
+function appendPositionedContent(parent, text, content) {
+  const items = content.filter((item) => isObject(item) && Number.isFinite(Number(item.position))).sort((a, b) => Number(a.position) - Number(b.position));
+  let cursor = 0;
+  items.forEach((item) => { const position = Math.max(cursor, Math.min(String(text).length, Number(item.position))); if (position > cursor) parent.append(textNode(String(text).slice(cursor, position))); appendRich(parent, item); cursor = position; });
+  if (cursor < String(text).length) parent.append(textNode(String(text).slice(cursor)));
+}
 function appendTextWithMath(parent, value) {
   const text = String(value ?? "");
   if (/\\(?:sqrt|frac|cdot|times|neq|leq|geq|pm|infty|left|right|[a-z]+)|\bsqrt(?:\[|\{|\d)/i.test(text)) {
@@ -146,8 +152,11 @@ function appendRich(parent, value) {
   if (formula != null) { parent.append(mathElement(Array.isArray(formula) ? formula.map(contentToPlain).join("") : formula, Boolean(value.is_multiline || value.display || value.displayMode))); return; }
   const type = String(value.type || "");
   if (type.includes("table")) { parent.append(renderTableValue(value.table)); return; }
-  if (value.text) appendTextWithMath(parent, value.text);
-  if (value.content != null) appendRich(parent, value.content);
+  if (value.text && Array.isArray(value.content) && value.content.some((item) => isObject(item) && Number.isFinite(Number(item.position)))) appendPositionedContent(parent, value.text, value.content);
+  else {
+    if (value.text) appendTextWithMath(parent, value.text);
+    if (value.content != null) appendRich(parent, value.content);
+  }
 }
 function renderTableValue(table) {
   const wrapper = document.createElement("div"); wrapper.className = "table-wrap";
