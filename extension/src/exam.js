@@ -382,7 +382,8 @@ async function submitTask(task, button, status) {
   button.disabled = true; status.textContent = "Отправляю…";
   const result = await api.runtime.sendMessage({ type: "SUBMIT_EXAM_ANSWER", payload: { challenge_task_id: task.id, challenge_attempt_id: state.snapshot.response.challenge_attempt_id, answer } });
   button.disabled = false;
-  status.textContent = result?.ok ? `Отправлено (${result.status})` : `Ошибка: ${result?.error || `HTTP ${result?.status || "неизвестно"}`}`;
+  const trace = result?.traceId ? ` · trace ${String(result.traceId).split(":").at(-1)?.slice(0, 8)}` : "";
+  status.textContent = result?.ok ? `Отправлено (${result.status})${trace}` : `Ошибка: ${result?.error || `HTTP ${result?.status || "неизвестно"}`}${trace}`;
   status.className = `submit-status ${result?.ok ? "success" : "error"}`;
   return result;
 }

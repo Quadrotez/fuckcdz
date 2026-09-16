@@ -90,6 +90,10 @@ Debug-mode предназначен для исследования сетево
 
 Debug-лог хранится только в локальном хранилище браузера. Перехватчик маскирует поля и заголовки с названиями `authorization`, `cookie`, `token`, `password`, `jwt`, `csrf`, `session`, `secret` и похожими. Перед передачей лога третьим лицам рекомендуется вручную проверить JSON и удалить cookies, Bearer-токены, access/refresh tokens и персональные данные.
 
+Для расследования отправки ответа логируется отдельная корреляционная цепочка: `bridge-command-start` → `command-start` → `command-result`/`command-error` → `bridge-result` либо `bridge-timeout`. В `command-start` сохраняются обезличенное состояние `Authorization`/`Profile-Id`, точный JSON внутри multipart Blob и `traceId`; в результате — HTTP-статус, длительность, выбранные response-заголовки и обезличенное тело ответа. Для `session/v2/refresh` отдельно фиксируются `responseType`, факт успешного разбора JSON, использованное поле токена (`accessTokenEom` или `accessTokenAupd`) и состояние auth после обновления. Сами значения токенов никогда не записываются.
+
+Для повторного прогона очисти debug-лог, перезагрузи страницу теста, дождись `start-attempt`, отправь один ответ и сразу экспортируй лог. Для анализа одной попытки сопоставь одинаковые `requestId`/`traceId`: если нет `bridge-command-start`, проблема до content-script; если нет `command-start`, проблема в доставке команды; если `authorizationPresent` равно `false`, проблема в извлечении или жизни сессии; если есть `command-result` с 4xx/5xx, проблема в auth, payload или состоянии попытки; если есть `command-result`, но нет `bridge-result`, проблема в обратном мосте.
+
 Debug-mode не изменяет запросы, не отправляет ответы на внешний сервер и не пытается автоматически решать тест.
 
 ## Ограничения

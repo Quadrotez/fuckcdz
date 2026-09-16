@@ -2,11 +2,18 @@
   const CHANNEL = "mesh-tasks-debug";
   const MAX_BODY = 12000;
   const SECRET_KEY = /(authorization|cookie|token|secret|password|passwd|jwt|session|csrf|set-cookie|api[-_]?key)/i;
+  const TRACE_SESSION = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
   function isToken(value) {
     return /^eyJ[A-Za-z0-9_-]*\.eyJ[A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]+)?$/.test(value)
       || /^Bearer\s+[A-Za-z0-9._~+/=_-]{16,}$/.test(value)
       || /^[A-Za-z0-9._~+-]{40,}$/.test(value);
+  }
+
+  function shortHash(value) {
+    let hash = 2166136261;
+    for (const char of String(value || "")) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+    return (hash >>> 0).toString(16).padStart(8, "0");
   }
 
   function redact(value, depth = 0) {
@@ -50,11 +57,39 @@
       SECRET_KEY.test(key) ? "[redacted]" : String(value).slice(0, 300)
     ]));
   }
+
+  function headerEntries(headers) {
+    if (!headers) return [];
+    return headers instanceof Headers ? [...headers.entries()] : Array.isArray(headers) ? headers : Object.entries(headers);
+  }
+
   function authHeaders(headers) {
     const result = {};
-    if (!headers) return result;
-    const entries = headers instanceof Headers ? [...headers.entries()] : Array.isArray(headers) ? headers : Object.entries(headers);
-    for (const [name, value] of entries) if (/^(authorization|profile-id)$/i.test(String(name))) result[String(name)] = String(value);
+    for (const [name, value] of headerEntries(headers)) {
+      if (/^(authorization|profile-id)$/i.test(String(name))) result[String(name).toLowerCase()] = String(value);
+    }
+    return result;
+  }
+
+  function authDiagnostics(headers = latestAnswerHeaders) {
+    const auth = authHeaders(headers);
+    const authorization = auth.authorization || "";
+    return {
+      authorizationPresent: Boolean(authorization),
+      authorizationScheme: authorization.split(/\s+/, 1)[0] || null,
+      authorizationFingerprint: authorization ? shortHash(authorization) : null,
+      profileIdPresent: Boolean(auth["profile-id"]),
+      profileIdFingerprint: auth["profile-id"] ? shortHash(auth["profile-id"]) : null,
+      headerNames: Object.keys(headers || {}).sort()
+    };
+  }
+
+  function selectedResponseHeaders(response) {
+    const result = {};
+    for (const name of ["content-type", "www-authenticate", "x-request-id", "x-correlation-id", "retry-after", "location"]) {
+      const value = response?.headers?.get(name);
+      if (value) result[name] = value.slice(0, 500);
+    }
     return result;
   }
 
@@ -102,28 +137,50 @@
   }
 
   function emit(payload) {
-    window.postMessage({ source: CHANNEL, type: "event", payload }, location.origin);
+    window.postMessage({ source: CHANNEL, type: "event", payload: { traceSession: TRACE_SESSION, ...payload } }, location.origin);
+  }
+
+  function commandResult(requestId, result) {
+    window.postMessage({ source: CHANNEL, type: "command-result", requestId, result }, location.origin);
   }
 
   async function submitAnswer(requestId, payload) {
     const started = performance.now();
+    const traceId = `${TRACE_SESSION}:answer:${requestId}`;
+    const headers = { ...latestAnswerHeaders };
+    const body = new FormData();
+    body.append("request", new Blob([JSON.stringify(payload)], { type: "application/json" }), "blob");
+    emit({ kind: "command-start", command: "submit-answer", traceId, requestId, method: "POST", url: safeUrl("/webtests/exam/rest/secure/challenge/task/answer"), requestHeaders: authDiagnostics(headers), requestBody: await serializeBody(body) });
     try {
-      const body = new FormData();
-      body.append("request", new Blob([JSON.stringify(payload)], { type: "application/json" }), "blob");
-      const headers = { ...latestAnswerHeaders };
       delete headers["content-type"]; delete headers["content-length"];
       const response = await nativeFetch("/webtests/exam/rest/secure/challenge/task/answer", { method: "POST", body, credentials: "include", headers });
-      window.postMessage({ source: CHANNEL, type: "command-result", requestId, result: { ok: response.ok, status: response.status, durationMs: Math.round(performance.now() - started) } }, location.origin);
+      const result = { ok: response.ok, status: response.status, statusText: response.statusText, durationMs: Math.round(performance.now() - started), requestHeaders: authDiagnostics(headers), responseHeaders: selectedResponseHeaders(response), response: await responseBody(response) };
+      emit({ kind: "command-result", command: "submit-answer", traceId, requestId, ...result });
+      commandResult(requestId, { ok: result.ok, status: result.status, durationMs: result.durationMs, traceId, responseHeaders: result.responseHeaders, response: result.response });
     } catch (error) {
-      window.postMessage({ source: CHANNEL, type: "command-result", requestId, result: { ok: false, error: String(error?.message || error) } }, location.origin);
+      const result = { ok: false, durationMs: Math.round(performance.now() - started), requestHeaders: authDiagnostics(headers), error: String(error?.message || error), errorName: error?.name || "Error" };
+      emit({ kind: "command-error", command: "submit-answer", traceId, requestId, ...result });
+      commandResult(requestId, { ...result, traceId });
     }
   }
 
   async function completeAttempt(requestId, challengeId) {
+    const started = performance.now();
+    const traceId = `${TRACE_SESSION}:complete:${requestId}`;
+    const headers = { ...latestAnswerHeaders, "content-type": "application/json" };
+    const url = `/webtests/exam/rest/secure/challenge/${encodeURIComponent(challengeId)}/complete_attempt`;
+    const body = JSON.stringify({ challenge_id: Number(challengeId) });
+    emit({ kind: "command-start", command: "complete-attempt", traceId, requestId, method: "POST", url: safeUrl(url), requestHeaders: authDiagnostics(headers), requestBody: redact(JSON.parse(body)) });
     try {
-      const response = await nativeFetch(`/webtests/exam/rest/secure/challenge/${encodeURIComponent(challengeId)}/complete_attempt`, { method: "POST", credentials: "include", headers: { ...latestAnswerHeaders, "content-type": "application/json" }, body: JSON.stringify({ challenge_id: Number(challengeId) }) });
-      window.postMessage({ source: CHANNEL, type: "command-result", requestId, result: { ok: response.ok, status: response.status } }, location.origin);
-    } catch (error) { window.postMessage({ source: CHANNEL, type: "command-result", requestId, result: { ok: false, error: String(error?.message || error) } }, location.origin); }
+      const response = await nativeFetch(url, { method: "POST", credentials: "include", headers, body });
+      const result = { ok: response.ok, status: response.status, statusText: response.statusText, durationMs: Math.round(performance.now() - started), requestHeaders: authDiagnostics(headers), responseHeaders: selectedResponseHeaders(response), response: await responseBody(response) };
+      emit({ kind: "command-result", command: "complete-attempt", traceId, requestId, ...result });
+      commandResult(requestId, { ok: result.ok, status: result.status, durationMs: result.durationMs, traceId, responseHeaders: result.responseHeaders, response: result.response });
+    } catch (error) {
+      const result = { ok: false, durationMs: Math.round(performance.now() - started), requestHeaders: authDiagnostics(headers), error: String(error?.message || error), errorName: error?.name || "Error" };
+      emit({ kind: "command-error", command: "complete-attempt", traceId, requestId, ...result });
+      commandResult(requestId, { ...result, traceId });
+    }
   }
 
   window.addEventListener("message", (event) => {
@@ -134,6 +191,8 @@
   });
 
   const nativeFetch = window.fetch;
+  let latestAnswerHeaders = {};
+
   window.fetch = async function debugFetch(input, init = {}) {
     const request = input instanceof Request ? input : null;
     const url = String(request?.url || input || "");
@@ -153,16 +212,16 @@
         durationMs: Math.round(performance.now() - started),
         requestHeaders: headersToObject(init.headers || request?.headers),
         requestBody: await serializeBody(init.body),
+        responseHeaders: selectedResponseHeaders(response),
         response: await responseBody(response)
       });
       return response;
     } catch (error) {
-      emit({ kind: "fetch-error", method: init.method || request?.method || "GET", url: safeUrl(url), error: String(error?.message || error) });
+      emit({ kind: "fetch-error", method: init.method || request?.method || "GET", url: safeUrl(url), error: String(error?.message || error), errorName: error?.name || "Error" });
       throw error;
     }
   };
 
-  let latestAnswerHeaders = {};
   const nativeOpen = XMLHttpRequest.prototype.open;
   const nativeSend = XMLHttpRequest.prototype.send;
   const nativeSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
@@ -175,7 +234,7 @@
     return nativeSetRequestHeader.apply(this, arguments);
   };
   XMLHttpRequest.prototype.send = function debugSend(body) {
-    const request = this.__meshDebug || { method: "GET", url: "" };
+    const request = this.__meshDebug || { method: "GET", url: "", headers: {} };
     this.addEventListener("loadend", async () => {
       let response = null;
       try {
@@ -187,6 +246,13 @@
       } catch (error) {
         response = { readError: String(error?.message || error) };
       }
+      const responseHeaders = {};
+      for (const name of ["content-type", "www-authenticate", "x-request-id", "x-correlation-id", "retry-after", "location"]) {
+        const value = this.getResponseHeader(name);
+        if (value) responseHeaders[name] = value.slice(0, 500);
+      }
+      const authBefore = authDiagnostics(latestAnswerHeaders);
+      let refreshAuth = null;
       if (request.url.includes("/webtests/exam/rest/secure/") && this.status >= 200 && this.status < 300) latestAnswerHeaders = { ...latestAnswerHeaders, ...request.headers };
       if (request.url.includes("/acl/api/session/v2/refresh") && this.status >= 200 && this.status < 300) {
         try {
@@ -194,21 +260,30 @@
           if (session.profileId) latestAnswerHeaders["Profile-Id"] = String(session.profileId);
           const token = session.accessTokenEom || session.accessTokenAupd;
           if (token) latestAnswerHeaders.Authorization = `Bearer ${token}`;
-        } catch {}
+          refreshAuth = { parsed: true, tokenField: session.accessTokenEom ? "accessTokenEom" : session.accessTokenAupd ? "accessTokenAupd" : null, profileIdPresent: Boolean(session.profileId), authAfter: authDiagnostics(latestAnswerHeaders) };
+        } catch (error) {
+          refreshAuth = { parsed: false, parseError: String(error?.message || error), responseType: this.responseType || "text" };
+        }
       }
       emit({
         kind: "xhr",
         method: request.method,
         url: safeUrl(request.url),
         status: this.status,
+        statusText: this.statusText,
         contentType: this.getResponseHeader("content-type") || "",
         durationMs: Math.round(performance.now() - (request.started || performance.now())),
-        response: response,
+        requestHeaders: headersToObject(request.headers),
+        requestAuth: authDiagnostics(request.headers),
+        authBefore,
+        refreshAuth,
+        responseHeaders,
+        response,
         requestBody: await serializeBody(body)
       });
     }, { once: true });
     return nativeSend.apply(this, arguments);
   };
 
-  emit({ kind: "hook-installed", url: location.href, title: document.title });
+  emit({ kind: "hook-installed", url: location.href, title: document.title, auth: authDiagnostics() });
 })();

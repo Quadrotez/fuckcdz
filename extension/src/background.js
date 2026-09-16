@@ -3,7 +3,7 @@ const TASKS_PAGE = "tasks.html";
 const DEBUG_PAGE = "debug.html";
 const EXAM_PAGE = "exam.html";
 const DEBUG_KEY = "debugLog";
-const MAX_DEBUG_EVENTS = 300;
+const MAX_DEBUG_EVENTS = 500;
 let debugWriteQueue = Promise.resolve();
 
 function queryActiveTab() {
@@ -69,7 +69,9 @@ function appendDebugEvent(event, sourceTabId = null) {
   debugWriteQueue = debugWriteQueue.then(async () => {
     const result = await api.storage.local.get(DEBUG_KEY);
     const log = result[DEBUG_KEY] || { version: 1, startedAt: new Date().toISOString(), events: [] };
-    log.events = [...(log.events || []), { timestamp: new Date().toISOString(), ...event }].slice(-MAX_DEBUG_EVENTS);
+    const previous = Array.isArray(log.events) ? log.events : [];
+    const sequence = (previous.at(-1)?.sequence || 0) + 1;
+    log.events = [...previous, { sequence, timestamp: new Date().toISOString(), sourceTabId, ...event }].slice(-MAX_DEBUG_EVENTS);
     const update = { [DEBUG_KEY]: log };
     if (event.response && /\/challenge\/[^/]+\/start-attempt(?:\?|$)/.test(event.url || "")) {
       update.latestExam = {
