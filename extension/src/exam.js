@@ -398,6 +398,14 @@ function detectGapMatchType(task) {
   const positions = answer.text_position || [];
   return positions.length > 0 && positions.some((position) => Array.isArray(position?.options) && position.options.length > 0);
 }
+function renderInlineChoice(container, task) {
+  const answer = task.answer || {}; const positions = [...(answer.text_position || [])].map((item, index) => ({ ...item, index })).sort((a, b) => a.position - b.position); const element = gapTextElement(task, positions); const source = element?.text || ""; const values = state.answers[task.id] || {}; const body = document.createElement("div"); body.className = "gap-text inline-choice-text"; let cursor = 0;
+  positions.forEach((position) => {
+    const key = gapPositionKey(position, position.index); body.append(textNode(source.slice(cursor, position.position))); const options = Array.isArray(position.options) ? position.options : []; const selected = values[key]?.id ?? values[key];
+    const picker = createRichSelect(options.map((option, optionIndex) => ({ value: String(option.id ?? optionIndex), option })), selected, "выберите", (value) => { const next = state.answers[task.id] || {}; next[key] = { text_id: position.text_id, id: value }; state.answers[task.id] = next; persistAnswers(); }); picker.classList.add("inline-choice-picker"); picker.dataset.positionId = key; body.append(picker); cursor = position.position;
+  });
+  body.append(textNode(source.slice(cursor))); container.append(body);
+}
 function renderAnswer(container, task) {
   const type = task.answer?.type || "unknown"; const help = document.createElement("p"); help.className = "instruction"; help.textContent = TYPE_HELP[type] || "Заполните ответ в соответствии с условием задания."; container.append(help);
   if (type === "answer/single") renderSimpleOptions(container, task, false);
@@ -410,6 +418,7 @@ function renderAnswer(container, task) {
   else if (type === "answer/groups") renderGroups(container, task);
   else if (type === "answer/table") renderTableAnswer(container, task);
   else if (type === "answer/gap/text/input") renderGapTextInput(container, task);
+  else if (type === "answer/inline/choice/single") renderInlineChoice(container, task);
   else if (type === "answer/gap/match/text" || detectGapMatchType(task)) renderGap(container, task);
   else { const note = document.createElement("p"); note.className = "unsupported"; note.textContent = `Тип ${type} пока отображается в режиме просмотра.`; container.append(note); renderSimpleOptions(container, task, false); }
 }
@@ -430,6 +439,12 @@ function buildSubmitPayload(task) {
     const cells = Object.fromEntries(Object.entries(value).map(([row, columns]) => [String(row), Object.fromEntries(Object.entries(columns || {}).map(([column, cell]) => [String(column), Array.isArray(cell) ? cell.map(String) : [String(cell ?? "")]]))]));
     return { "@answer_type": type, cells };
   }
+  if (type === "answer/inline/choice/single") {
+    if (!value || typeof value !== "object" || Array.isArray(value) || !Object.keys(value).length) return null;
+    const positions = Array.isArray(task.answer?.text_position) ? task.answer.text_position : [];
+    const text_position_answer = Object.entries(value).map(([key, selected]) => { const position = positions.find((item, index) => String(item?.position_id ?? index) === String(key)); const id = selected && typeof selected === "object" ? selected.id ?? selected.value : selected; return { text_id: String(selected?.text_id ?? position?.text_id ?? ""), position_id: String(position?.position_id ?? key), id: String(id ?? "") }; }).filter((item) => item.id);
+    return text_position_answer.length ? { "@answer_type": type, text_position_answer } : null;
+  }
   return null;
 }
 async function submitTask(task, button, status) {
@@ -446,7 +461,7 @@ async function submitTask(task, button, status) {
 function renderTask(task, index) {
   const card = document.createElement("article"); card.className = "question"; card.id = `task-${task.id}`;
   const head = document.createElement("div"); head.className = "question-head"; const title = document.createElement("h2"); title.textContent = `Задание ${index + 1}`; const type = document.createElement("span"); type.className = "type-pill"; type.textContent = task.answer?.type || "неизвестный тип"; head.append(title, type); card.append(head);
-  const question = document.createElement("div"); const gapType = /answer\/gap\//.test(String(task.answer?.type || "")); const questionElements = gapType ? (task.question_elements || []).filter((element) => element?.type !== "content/text/identificational") : task.question_elements; renderQuestion(question, questionElements); card.append(question);
+  const question = document.createElement("div"); const inlineType = task.answer?.type === "answer/inline/choice/single"; const gapType = /answer\/gap\//.test(String(task.answer?.type || "")); const questionElements = gapType || inlineType ? (task.question_elements || []).filter((element) => element?.type !== "content/text/identificational") : task.question_elements; renderQuestion(question, questionElements); card.append(question);
   const answer = document.createElement("section"); answer.className = "answer-area"; renderAnswer(answer, task);
   const footer = document.createElement("div"); footer.className = "submit-footer"; const button = document.createElement("button"); button.type = "button"; button.className = "primary submit-answer"; button.textContent = "Отправить ответ"; const status = document.createElement("span"); status.className = "submit-status"; button.addEventListener("click", () => submitTask(task, button, status).catch((error) => { button.disabled = false; status.className = "submit-status error"; status.textContent = String(error?.message || error); })); footer.append(button, status); answer.append(footer); card.append(answer);
   return card;
@@ -534,6 +549,11 @@ function normalizeImportedAnswer(task, value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`для задания ${task.id} нужна таблица`);
     const source = value.cells && typeof value.cells === "object" ? value.cells : value.answer && typeof value.answer === "object" ? value.answer : value;
     return Object.fromEntries(Object.entries(source).map(([row, columns]) => [String(row), Object.fromEntries(Object.entries(columns || {}).map(([column, cell]) => [String(column), Array.isArray(cell) ? String(cell[0] ?? "") : String(cell ?? "")]))]));
+  }
+  if (type === "answer/inline/choice/single") {
+    const entries = Array.isArray(value) ? value.map((item) => [item.position_id, item]) : Object.entries(value || {});
+    if (!entries.length) throw new Error(`для задания ${task.id} нужен хотя бы один выбор`);
+    return Object.fromEntries(entries.map(([key, item]) => { const selected = item && typeof item === "object" ? item.id ?? item.value ?? item.text : item; const position = (task.answer?.text_position || []).find((candidate, index) => String(candidate?.position_id ?? index) === String(key)); const id = findOptionId({ answer: { options: position?.options || [] } }, selected) ?? String(selected ?? ""); return [String(position?.position_id ?? key), { text_id: String(item?.text_id ?? position?.text_id ?? ""), id }]; }));
   }
   return value;
 }

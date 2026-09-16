@@ -76,6 +76,10 @@ select { min-width: 0; padding: 9px; border: 1px solid #c4cedd; border-radius: 7
 .gap-picker { display: inline-block; width: min(180px, 28vw); margin: 0 4px; vertical-align: middle; font-size: .9em; }
 .gap-picker .rich-select-trigger { min-height: 34px; padding: 5px 28px 5px 8px; }
 .gap-picker .rich-select-menu { min-width: 180px; }
+.inline-choice-text { line-height: 2.7; }
+.inline-choice-picker { display: inline-block; width: min(230px, 38vw); margin: 0 5px; vertical-align: middle; font-size: .9em; }
+.inline-choice-picker .rich-select-trigger { min-height: 34px; padding: 5px 28px 5px 8px; }
+.inline-choice-picker .rich-select-menu { min-width: 220px; }
 .option-bank { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; padding: 10px; border: 1px dashed #bdc9dc; border-radius: 8px; background: #fbfcff; }
 .chip { padding: 6px 9px; border: 1px solid #aabadd; border-radius: 999px; background: #eef3ff; color: #315fc1; cursor: grab; }
 .table-wrap { overflow-x: auto; margin: 10px 0; }
