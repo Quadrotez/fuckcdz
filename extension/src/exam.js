@@ -365,13 +365,14 @@ function renderAnswer(container, task) {
 function buildSubmitPayload(task) {
   const type = task.answer?.type;
   const value = state.answers[task.id];
+  const asSetMap = (input) => Object.fromEntries(Object.entries(input || {}).map(([key, item]) => [String(key), Array.isArray(item) ? item.map(String) : [String(item)]]));
   if (type === "answer/single") return value ? { "@answer_type": type, id: value } : null;
   if (type === "answer/free" || type === "answer/string") return value != null && String(value).trim() ? { "@answer_type": type, string: String(value) } : null;
   if (type === "answer/string/multiple") { const answers = Array.isArray(value) ? value.map((item) => String(item ?? "").trim()).filter(Boolean) : []; return answers.length ? { "@answer_type": type, answers } : null; }
   if (type === "answer/number") return value != null && String(value).trim() ? { "@answer_type": type, number: Number(value) } : null;
   if (["answer/multiple", "answer/order"].includes(type)) return Array.isArray(value) && value.length ? { "@answer_type": type, ids: value } : null;
-  if (type === "answer/match") return value && Object.keys(value).length ? { "@answer_type": type, match: value } : null;
-  if (type === "answer/groups") return value && Object.keys(value).length ? { "@answer_type": type, groups: value } : null;
+  if (type === "answer/match") return value && Object.keys(value).length ? { "@answer_type": type, match: asSetMap(value) } : null;
+  if (type === "answer/groups") return value && Object.keys(value).length ? { "@answer_type": type, groups: asSetMap(value) } : null;
   if (type === "answer/gap/text" || type === "answer/gap/match/text" || type === "answer/gap/text/input") return value && Object.keys(value).length ? { "@answer_type": type, answers: value } : null;
   if (type === "answer/table") return value ? { "@answer_type": type, answer: value } : null;
   return null;

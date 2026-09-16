@@ -1,5 +1,11 @@
 (() => {
   const CHANNEL = "mesh-tasks-debug";
+  const INSTALL_MARKER = "__meshTasksPageHookInstalled";
+  if (window[INSTALL_MARKER]) {
+    window.postMessage({ source: CHANNEL, type: "event", payload: { kind: "hook-duplicate-skipped", existing: window[INSTALL_MARKER] } }, location.origin);
+    return;
+  }
+  window[INSTALL_MARKER] = { installedAt: new Date().toISOString(), url: location.href };
   const MAX_BODY = 12000;
   const SECRET_KEY = /(authorization|cookie|token|secret|password|passwd|jwt|session|csrf|set-cookie|api[-_]?key)/i;
   const TRACE_SESSION = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;

@@ -94,6 +94,8 @@ Debug-лог хранится только в локальном хранили�
 
 Для повторного прогона очисти debug-лог, перезагрузи страницу теста, дождись `start-attempt`, отправь один ответ и сразу экспортируй лог. Для анализа одной попытки сопоставь одинаковые `requestId`/`traceId`: если нет `bridge-command-start`, проблема до content-script; если нет `command-start`, проблема в доставке команды; если `authorizationPresent` равно `false`, проблема в извлечении или жизни сессии; если есть `command-result` с 4xx/5xx, проблема в auth, payload или состоянии попытки; если есть `command-result`, но нет `bridge-result`, проблема в обратном мосте.
 
+Для `answer/match` и `answer/groups` значения `match`/`groups` передаются как массивы ID, даже если в локальном состоянии интерфейса выбран один вариант. Это соответствует типу `Set` на стороне МЭШ и предотвращает ошибку Jackson `Cannot construct instance of java.util.LinkedHashSet ... no String-argument constructor`.
+
 Debug-mode не изменяет запросы, не отправляет ответы на внешний сервер и не пытается автоматически решать тест.
 
 ## Ограничения

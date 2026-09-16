@@ -7,12 +7,16 @@
   }
 
   function installHook() {
+    if (document.querySelector("script[data-mesh-debug-hook='true']")) {
+      emit({ kind: "bridge-duplicate-skipped", reason: "hook-script-already-present" });
+      return;
+    }
     const script = document.createElement("script");
     script.src = api.runtime.getURL("page-hook.js");
     script.dataset.meshDebugHook = "true";
     script.addEventListener("error", () => emit({ kind: "hook-load-error", url: script.src }));
     (document.head || document.documentElement).append(script);
-    script.addEventListener("load", () => { emit({ kind: "hook-loaded", url: location.href }); script.remove(); }, { once: true });
+    script.addEventListener("load", () => { emit({ kind: "hook-loaded", url: location.href }); }, { once: true });
   }
 
   const pending = new Map();
