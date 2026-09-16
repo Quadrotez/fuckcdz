@@ -368,7 +368,8 @@ function buildSubmitPayload(task) {
   if (type === "answer/string/multiple") { const answers = Array.isArray(value) ? value.map((item) => String(item ?? "").trim()).filter(Boolean) : []; return answers.length ? { "@answer_type": type, answers } : null; }
   if (type === "answer/number") return value != null && String(value).trim() ? { "@answer_type": type, number: Number(value) } : null;
   if (["answer/multiple", "answer/order"].includes(type)) return Array.isArray(value) && value.length ? { "@answer_type": type, ids: value } : null;
-  if (type === "answer/match" || type === "answer/groups") return value && Object.keys(value).length ? { "@answer_type": type, matches: value } : null;
+  if (type === "answer/match") return value && Object.keys(value).length ? { "@answer_type": type, match: value } : null;
+  if (type === "answer/groups") return value && Object.keys(value).length ? { "@answer_type": type, groups: value } : null;
   if (type === "answer/gap/text" || type === "answer/gap/match/text" || type === "answer/gap/text/input") return value && Object.keys(value).length ? { "@answer_type": type, answers: value } : null;
   if (type === "answer/table") return value ? { "@answer_type": type, answer: value } : null;
   return null;
@@ -561,7 +562,7 @@ document.querySelector("#finish").addEventListener("click", async () => {
   const button = document.querySelector("#finish"); button.disabled = true; button.textContent = "Завершаю…";
   const result = await api.runtime.sendMessage({ type: "COMPLETE_EXAM_ATTEMPT", payload: { challenge_id: challengeId } });
   button.disabled = false; button.textContent = result?.ok ? "Тестирование завершено" : "Подтвердить и завершить тестирование";
-  if (result?.ok) { const challengeId = String(state.snapshot?.url || "").match(/challenge\/(\d+)/)?.[1]; const results = document.querySelector("#results"); if (challengeId) { results.href = `https://uchebnik.mos.ru/webtests/exam/${challengeId}/results`; results.hidden = false; } }
+  if (result?.ok) { const assignmentUrl = String(state.snapshot?.assignmentUrl || state.snapshot?.response?.assignment?.url || "").replace(/\/$/, ""); const results = document.querySelector("#results"); if (assignmentUrl) { results.href = `${assignmentUrl}/result`; results.hidden = false; } else alert("Тест завершён, но URL контекста результатов ещё не найден. Открой страницу МЭШ с результатами из истории попыток."); }
   else alert(`Не удалось завершить тест: ${result?.error || `HTTP ${result?.status || "неизвестно"}`}`);
 });
 document.querySelector("#copy").addEventListener("click", async () => { const text = [...document.querySelectorAll(".question")].map((node) => node.innerText).join("\n\n"); await navigator.clipboard.writeText(text); document.querySelector("#copy").textContent = "Скопировано"; setTimeout(() => { document.querySelector("#copy").textContent = "Копировать текст"; }, 1500); });
