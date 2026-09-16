@@ -84,7 +84,7 @@ th { background: #eef3ff; }
 .submit-status.success { color: #18794e; }
 .submit-status.error { color: #b42318; }
 @media (max-width: 700px) { .topbar { flex-direction: column; } .actions { justify-content: flex-start; } .match-row, .group-row { grid-template-columns: 1fr; } .question { padding: 15px; } }
-@media print { :root { background: #fff; } .topbar { padding: 0 0 14px; background: #fff; color: #000; } .actions, .notice, .instruction, .answer-area input, .answer-area select, .option-bank, .order-controls, .summary, .submit-footer, #prompt-dialog, #paste-dialog { display: none !important; } .muted { color: #333; } main { width: 100%; margin: 0; } .questions { display: block; } .question { margin: 0 0 16px; padding: 12px 0; border: 0; box-shadow: none; break-inside: avoid; page-break-inside: avoid; } .question-head { break-after: avoid; page-break-after: avoid; } .media-box img, .media-box video { max-height: 360px; } .choice { border-color: #cbd5e3; } .chip { border-color: #555; background: #fff; color: #000; } }
+@media print { :root { background: #fff; } .topbar { padding: 0 0 14px; background: #fff; color: #000; } .actions, .notice, .answer-area input, .answer-area select, .order-controls, .summary, .submit-footer, #prompt-dialog, #paste-dialog, #import-progress-dialog { display: none !important; } .muted { color: #333; } main { width: 100%; margin: 0; } .questions { display: block; } .question { margin: 0 0 16px; padding: 12px 0; border: 0; box-shadow: none; break-inside: avoid; page-break-inside: avoid; } .question-head { break-after: avoid; page-break-after: avoid; } .media-box img, .media-box video { max-height: 360px; } .choice { border-color: #cbd5e3; } .chip { border-color: #555; background: #fff; color: #000; } .option-bank { display: flex !important; } .print-answer-options { display: block !important; margin-top: 10px; padding: 8px 10px; border: 1px dashed #777; color: #222; font-size: 13px; line-height: 1.45; } }
 
 .string-multiple-list { display: grid; gap: 8px; margin-bottom: 8px; }
 .string-multiple-row { display: flex; align-items: center; gap: 8px; }
@@ -94,6 +94,8 @@ th { background: #eef3ff; }
 .choice .media-box img { max-height: 260px; margin: 0; }
 
 #auto-solve-status { min-height: 18px; }
+
+.print-answer-options { display: none; }
 
 html.dark { color-scheme:dark; --dark-bg:#111827; --dark-card:#1b2536; --dark-border:#334155; }
 html.dark body { background:var(--dark-bg); color:#e5e7eb; }

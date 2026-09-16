@@ -187,6 +187,9 @@ function renderMatch(container, task) {
   const table = document.createElement("div"); table.className = "match-list";
   left.forEach((source, index) => { const row = document.createElement("label"); row.className = "match-row"; const sourceNode = document.createElement("span"); appendRich(sourceNode, source); const select = document.createElement("select"); select.innerHTML = `<option value="">Выберите соответствие…</option>`; right.forEach((target, targetIndex) => { const option = document.createElement("option"); option.value = String(target.id ?? targetIndex); option.textContent = optionLabel(target); select.append(option); }); select.value = values[String(source.id ?? index)] || ""; select.addEventListener("change", () => { values[String(source.id ?? index)] = select.value; state.answers[task.id] = values; persistAnswers(); }); row.append(sourceNode, select); table.append(row); });
   container.append(table);
+  const printOptions = document.createElement("div"); printOptions.className = "print-answer-options";
+  printOptions.textContent = `Варианты соответствия: ${right.map((item, index) => `${index + 1}. ${optionLabel(item)}`).join("; ")}`;
+  container.append(printOptions);
 }
 function renderGroups(container, task) {
   const answer = task.answer || {};
@@ -207,6 +210,9 @@ function renderGroups(container, task) {
     row.append(statement, select); list.append(row);
   });
   container.append(list);
+  const printOptions = document.createElement("div"); printOptions.className = "print-answer-options";
+  printOptions.textContent = `Группы для выбора: ${groups.map((item, index) => `${index + 1}. ${optionLabel(item)}`).join("; ")}`;
+  container.append(printOptions);
 }
 function renderTableAnswer(container, task) {
   const answer = task.answer || {}; const options = (answer.options || []).slice(); const tableOption = options.find((item) => item.content?.some?.((content) => content.type === "content/table"));
