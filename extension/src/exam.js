@@ -44,6 +44,10 @@ function mathElement(latex, display = false) {
 }
 function appendTextWithMath(parent, value) {
   const text = String(value ?? "");
+  if (/\\(?:sqrt|frac|cdot|times|neq|leq|geq|pm|infty|left|right|[a-z]+)|\bsqrt(?:\[|\{|\d)/i.test(text)) {
+    const hasMathCommand = /\\(?:sqrt|frac|cdot|times|neq|leq|geq|pm|infty)|\bsqrt(?:\[|\{|\d)/i.test(text);
+    if (hasMathCommand && !/[.!?]\s+[А-ЯЁA-Z]/.test(text)) { parent.append(mathElement(text)); return; }
+  }
   const pattern = /(\\\(|\\\[|\$\$?|\\begin\{math\})([\s\S]*?)(?:\\\)|\\\]|\$\$?|\\end\{math\})/g;
   let cursor = 0; let match;
   while ((match = pattern.exec(text))) {
@@ -55,7 +59,14 @@ function appendTextWithMath(parent, value) {
 function normalizeMath(value) {
   return value
     .replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, "($1)/($2)")
+    .replace(/\\sqrt\s*\[([^\]]+)\]\s*\{([^{}]*)\}/g, "($2)^(1/$1)")
+    .replace(/\\sqrt\s*\[([^\]]+)\]\s*([^\s,.;!?+={}\[\]()]+)/g, "($2)^(1/$1)")
     .replace(/\\sqrt\s*\{([^{}]*)\}/g, "√($1)")
+    .replace(/\\sqrt\s*([^\s,.;!?+={}\[\]()]+)/g, "√($1)")
+    .replace(/(^|[^\\])\bsqrt\s*\[([^\]]+)\]\s*([^\s,.;!?+={}\[\]()]+)/gi, "$1($3)^(1/$2)")
+    .replace(/(^|[^\\])\bsqrt\s*\{([^{}]*)\}/gi, "$1√($2)")
+    .replace(/\^\{([^{}]+)\}/g, "^($1)")
+    .replace(/_\{([^{}]+)\}/g, "_($1)")
     .replace(/\\cdot|\\times/g, "·")
     .replace(/\\neq/g, "≠")
     .replace(/\\leq?/g, "≤")
