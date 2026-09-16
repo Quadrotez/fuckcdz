@@ -50,6 +50,13 @@
       SECRET_KEY.test(key) ? "[redacted]" : String(value).slice(0, 300)
     ]));
   }
+  function authHeaders(headers) {
+    const result = {};
+    if (!headers) return result;
+    const entries = headers instanceof Headers ? [...headers.entries()] : Array.isArray(headers) ? headers : Object.entries(headers);
+    for (const [name, value] of entries) if (/^(authorization|profile-id)$/i.test(String(name))) result[String(name)] = String(value);
+    return result;
+  }
 
   async function responseBody(response) {
     try {
@@ -134,6 +141,9 @@
     let response;
     try {
       response = await nativeFetch.apply(this, arguments);
+      if (response.ok && /\/webtests\/exam\/rest\/secure\//.test(url)) {
+        latestAnswerHeaders = { ...latestAnswerHeaders, ...authHeaders(init.headers || request?.headers) };
+      }
       emit({
         kind: "fetch",
         method: init.method || request?.method || "GET",
