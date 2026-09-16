@@ -339,8 +339,8 @@ function gapPositionKey(position, index) { return String(position?.position_id ?
 function gapTextElement(task, positions) {
   const elements = Array.isArray(task.question_elements) ? task.question_elements : [];
   const textId = positions.find((position) => position.text_id)?.text_id;
-  return elements.find((item) => textId && item?.text_id === textId)
-    || elements.find((item) => item?.type === "content/text/identificational")
+  return elements.find((item) => item?.type === "content/text/identificational")
+    || elements.find((item) => textId && item?.text_id === textId)
     || elements.find((item) => typeof item?.text === "string" && item.text.includes("\n") && item.type !== "content/text")
     || elements.find((item) => typeof item?.text === "string" && item.text.length > 100)
     || elements.find((item) => typeof item?.text === "string");
@@ -424,7 +424,7 @@ async function submitTask(task, button, status) {
 function renderTask(task, index) {
   const card = document.createElement("article"); card.className = "question"; card.id = `task-${task.id}`;
   const head = document.createElement("div"); head.className = "question-head"; const title = document.createElement("h2"); title.textContent = `Задание ${index + 1}`; const type = document.createElement("span"); type.className = "type-pill"; type.textContent = task.answer?.type || "неизвестный тип"; head.append(title, type); card.append(head);
-  const question = document.createElement("div"); renderQuestion(question, task.question_elements); card.append(question);
+  const question = document.createElement("div"); const gapType = /answer\/gap\//.test(String(task.answer?.type || "")); const questionElements = gapType ? (task.question_elements || []).filter((element) => element?.type !== "content/text/identificational") : task.question_elements; renderQuestion(question, questionElements); card.append(question);
   const answer = document.createElement("section"); answer.className = "answer-area"; renderAnswer(answer, task);
   const footer = document.createElement("div"); footer.className = "submit-footer"; const button = document.createElement("button"); button.type = "button"; button.className = "primary submit-answer"; button.textContent = "Отправить ответ"; const status = document.createElement("span"); status.className = "submit-status"; button.addEventListener("click", () => submitTask(task, button, status).catch((error) => { button.disabled = false; status.className = "submit-status error"; status.textContent = String(error?.message || error); })); footer.append(button, status); answer.append(footer); card.append(answer);
   return card;
