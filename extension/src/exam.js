@@ -39,8 +39,47 @@ function mathElement(latex, display = false) {
   span.className = `math ${display ? "math-display" : ""}`;
   span.setAttribute("role", "math");
   span.title = String(latex);
-  appendMathMarkup(span, normalizeMath(String(latex)));
+  const source = String(latex);
+  if (/\\(?:sqrt|frac)|\^\{|_\{/.test(source)) appendTeXMarkup(span, source);
+  else appendMathMarkup(span, normalizeMath(source));
   return span;
+}
+function readTeXGroup(source, start) {
+  if (source[start] !== "{") return null;
+  let depth = 0;
+  for (let index = start; index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1;
+    if (source[index] === "}") { depth -= 1; if (!depth) return { value: source.slice(start + 1, index), end: index + 1 }; }
+  }
+  return null;
+}
+function appendTeXMarkup(parent, source) {
+  let index = 0;
+  while (index < source.length) {
+    if (source.startsWith("\\sqrt", index)) {
+      index += 5; let degree = "";
+      if (source[index] === "[") { const end = source.indexOf("]", index + 1); if (end >= 0) { degree = source.slice(index + 1, end); index = end + 1; } }
+      const group = readTeXGroup(source, index);
+      if (group) {
+        const root = document.createElement("span"); root.className = "math-root";
+        if (degree) { const degreeNode = document.createElement("sup"); degreeNode.className = "root-degree"; appendTeXMarkup(degreeNode, degree); root.append(degreeNode); }
+        const symbol = document.createElement("span"); symbol.className = "root-symbol"; symbol.textContent = "√";
+        const body = document.createElement("span"); body.className = "root-body"; appendTeXMarkup(body, group.value); root.append(symbol, body); parent.append(root); index = group.end; continue;
+      }
+      parent.append(textNode("√")); continue;
+    }
+    if (source.startsWith("\\frac", index)) {
+      const numerator = readTeXGroup(source, index + 5); const denominator = numerator && readTeXGroup(source, numerator.end);
+      if (numerator && denominator) { const fraction = document.createElement("span"); fraction.className = "math-fraction"; const top = document.createElement("span"); top.className = "fraction-top"; const bottom = document.createElement("span"); bottom.className = "fraction-bottom"; appendTeXMarkup(top, numerator.value); appendTeXMarkup(bottom, denominator.value); fraction.append(top, bottom); parent.append(fraction); index = denominator.end; continue; }
+    }
+    if (source[index] === "^" || source[index] === "_") {
+      const node = document.createElement(source[index] === "^" ? "sup" : "sub"); const group = readTeXGroup(source, index + 1);
+      if (group) { appendTeXMarkup(node, group.value); parent.append(node); index = group.end; continue; }
+    }
+    const command = source.slice(index).match(/^\\(cdot|times|neq|leq|geq|pm|infty|alpha|beta|gamma|delta|lambda|mu|pi|sigma|omega|left|right)(?:\b|$)/i);
+    if (command) { appendTextWithMath(parent, normalizeMath(command[0])); index += command[0].length; continue; }
+    parent.append(textNode(source[index])); index += 1;
+  }
 }
 function appendMathMarkup(parent, value) {
   const source = String(value);
