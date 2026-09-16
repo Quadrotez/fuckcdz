@@ -378,12 +378,13 @@ function buildSubmitPayload(task) {
 }
 async function submitTask(task, button, status) {
   const answer = buildSubmitPayload(task);
-  if (!answer) { status.textContent = "Для этого типа ответа отправка пока не подключена или поле пустое."; return; }
+  if (!answer) { status.textContent = "Для этого типа ответа отправка пока не подключена или поле пустое."; return { ok: false, error: "пустой или неподдерживаемый ответ" }; }
   button.disabled = true; status.textContent = "Отправляю…";
   const result = await api.runtime.sendMessage({ type: "SUBMIT_EXAM_ANSWER", payload: { challenge_task_id: task.id, challenge_attempt_id: state.snapshot.response.challenge_attempt_id, answer } });
   button.disabled = false;
   status.textContent = result?.ok ? `Отправлено (${result.status})` : `Ошибка: ${result?.error || `HTTP ${result?.status || "неизвестно"}`}`;
   status.className = `submit-status ${result?.ok ? "success" : "error"}`;
+  return result;
 }
 function renderTask(task, index) {
   const card = document.createElement("article"); card.className = "question"; card.id = `task-${task.id}`;
@@ -484,17 +485,17 @@ function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 function importSettings() { return api.storage.local.get("autoSolve").then((result) => Math.max(0, Math.min(60000, Number(result.autoSolve?.importIntervalMs ?? 1000)))); }
 function openImportProgress(total) { const dialog = document.querySelector("#import-progress-dialog"); document.querySelector("#import-progress").max = total; document.querySelector("#import-progress").value = 0; document.querySelector("#import-progress-label").textContent = `Подготовка: 0 из ${total}`; dialog.showModal(); return dialog; }
 async function applyImportedAnswers(next) {
-  const tasks = getTasks(state.snapshot); const byId = new Map(tasks.map((task) => [String(task.id), task])); const entries = Object.entries(next); const dialog = openImportProgress(entries.length); const interval = await importSettings(); const controller = new AbortController(); state.importController = controller;
+  const tasks = getTasks(state.snapshot); const byId = new Map(tasks.map((task) => [String(task.id), task])); const entries = Object.entries(next); const dialog = openImportProgress(entries.length); const interval = await importSettings(); const controller = new AbortController(); const failures = []; state.importController = controller;
   try {
     for (let index = 0; index < entries.length; index += 1) {
       if (controller.signal.aborted) throw new DOMException("Импорт отменён", "AbortError");
       const [taskId, answer] = entries[index]; state.answers[taskId] = answer; persistAnswers();
       const task = byId.get(taskId); const button = document.querySelector(`#task-${CSS.escape(taskId)} .submit-answer`); const status = button?.parentElement?.querySelector(".submit-status");
-      if (task && button && status) await submitTask(task, button, status);
+      if (task && button && status) { const result = await submitTask(task, button, status); if (!result?.ok) failures.push(`${taskId}: ${result?.error || `HTTP ${result?.status || "неизвестно"}`}`); }
       document.querySelector("#import-progress").value = index + 1; document.querySelector("#import-progress-label").textContent = `Отправлено: ${index + 1} из ${entries.length}`;
       if (interval && index < entries.length - 1) await sleep(interval);
     }
-    await load(); const report = parseImportedText.lastReport; alert(`Импорт и подтверждение завершены: ${report?.imported || entries.length} из ${report?.total || "?"}.`);
+    await load(); const report = parseImportedText.lastReport; alert(failures.length ? `Импорт завершён с ошибками: подтверждено ${entries.length - failures.length} из ${entries.length}.\n\n${failures.join("\n")}` : `Импорт и подтверждение завершены: ${report?.imported || entries.length} из ${report?.total || "?"}.`);
   } catch (error) { if (error.name === "AbortError") alert("Импорт отменён. Уже отправленные ответы сохранены."); else throw error; }
   finally { state.importController = null; if (dialog.open) dialog.close(); }
 }
