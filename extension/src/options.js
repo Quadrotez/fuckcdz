@@ -1,5 +1,5 @@
 const api = globalThis.browser ?? globalThis.chrome;
-const defaults = { provider: "openai-compatible", protocol: "https", host: "api.openai.com", port: "443", path: "/v1/chat/completions", modelsPath: "/v1/models", model: "gpt-4o-mini", authType: "bearer", apiKey: "", sendImages: true, vision: "auto", maxImageSizeKb: "1024" };
+const defaults = { importIntervalMs: "1000", provider: "openai-compatible", protocol: "https", host: "api.openai.com", port: "443", path: "/v1/chat/completions", modelsPath: "/v1/models", model: "gpt-4o-mini", authType: "bearer", apiKey: "", sendImages: true, vision: "auto", maxImageSizeKb: "1024" };
 const ids = Object.keys(defaults); const $ = (id) => document.querySelector(`#${id}`);
 const form = $("settings-form"); const auth = $("authType"); const status = $("status"); const modelSelect = $("modelSelect"); const modelsList = $("models-list"); let current = { ...defaults };
 function updateAuth() { $("key-field").hidden = auth.value === "none"; }

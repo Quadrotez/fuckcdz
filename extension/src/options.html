@@ -9,6 +9,7 @@ html.dark { color-scheme: dark; } html.dark body { background:#111827; color:#e5
 </head>
 <body><main>
 <div class="page-head"><h1>Настройки FuckCDZ</h1><button data-theme-toggle class="theme-toggle" type="button">☾</button></div><p class="muted">Параметры подключения хранятся локально в браузере. Расширение не отправляет запросы, пока вы не нажмёте «Проверить подключение» или «Авторешение».</p>
+<h2>Импорт и подтверждение ответов</h2><label><span>Интервал между отправками ответов, мс</span><input id="importIntervalMs" type="number" min="0" max="60000" step="100" value="1000"><small>По умолчанию 1000 мс (1 секунда), чтобы не перегружать API МЭШ. Ноль отправляет без паузы.</small></label>
 <h2>Авторешение</h2><p class="beta"><strong>Бета-функция.</strong> Авторешение подставляет ответы в локальные поля. Оно не отправляет ответы в МЭШ и не завершает тестирование. Включайте отправку изображений только если выбранная модель действительно принимает vision-вход.</p>
 <form id="settings-form" class="card">
 <label><span>Провайдер</span><select id="provider"><option value="openai-compatible">OpenAI-совместимый API</option></select><small>Поддерживаются Chat Completions и Models API в совместимом формате.</small></label>

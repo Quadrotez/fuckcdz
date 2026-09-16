@@ -11,6 +11,10 @@ body { margin: 0; min-width: 320px; }
 h1 { margin: 0; font-size: clamp(26px, 4vw, 40px); }
 .muted { margin: 8px 0 0; color: #c8d3e7; font-size: 14px; }
 .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.action-cluster { position: relative; }
+.action-cluster summary { cursor: pointer; padding: 10px 13px; border: 1px solid #60749a; border-radius: 10px; color: #fff; font-weight: 650; list-style: none; }
+.action-cluster summary::-webkit-details-marker { display: none; }
+.cluster-body { position: absolute; z-index: 2; right: 0; display: flex; gap: 8px; min-width: 210px; margin-top: 6px; padding: 10px; border-radius: 10px; background: #182848; box-shadow: 0 12px 28px rgb(0 0 0 / 20%); }
 .button { border: 0; border-radius: 10px; padding: 11px 15px; cursor: pointer; font: inherit; font-weight: 650; }
 .button.secondary { background: #fff; color: #182848; }
 .button.ghost { border: 1px solid #60749a; background: transparent; color: #fff; }

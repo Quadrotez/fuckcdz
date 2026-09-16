@@ -48,6 +48,20 @@ async function openDebug() {
   return openPage(DEBUG_PAGE);
 }
 
+async function refreshLatestExam() {
+  const [tab] = await queryActiveTab();
+  if (!tab?.id || !/^https:\/\/(?:www\.)?uchebnik\.mos\.ru\//.test(tab.url || "")) {
+    return { error: "Открой текущую попытку теста на uchebnik.mos.ru." };
+  }
+  try {
+    const response = await api.tabs.sendMessage(tab.id, { type: "REFRESH_EXAM_SNAPSHOT" });
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    return response?.error ? response : { ok: true };
+  } catch {
+    return { error: "Не удалось обновить snapshot. Перезагрузи страницу теста и повтори попытку." };
+  }
+}
+
 async function openExam(print = false) {
   return openPage(print ? `${EXAM_PAGE}?print=1` : EXAM_PAGE);
 }
@@ -148,6 +162,7 @@ api.runtime.onMessage.addListener(async (message, sender) => {
   if (message?.type === "OPEN_TASKS") return openTasks();
   if (message?.type === "OPEN_DEBUG") return openDebug();
   if (message?.type === "OPEN_EXAM") return openExam();
+  if (message?.type === "REFRESH_LATEST_EXAM") return refreshLatestExam();
   if (message?.type === "OPEN_EXAM_PRINT") return openExam(true);
   if (message?.type === "SUBMIT_EXAM_ANSWER") return submitAnswer(message.payload);
   if (message?.type === "COMPLETE_EXAM_ATTEMPT") return submitAnswer({ ...message.payload, __complete: true });

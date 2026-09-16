@@ -22,6 +22,10 @@
   });
 
   api.runtime.onMessage.addListener((message) => {
+    if (message?.type === "REFRESH_EXAM_SNAPSHOT") {
+      location.reload();
+      return { ok: true };
+    }
     if (message?.type !== "SUBMIT_ANSWER" && message?.type !== "COMPLETE_ATTEMPT") return undefined;
     const requestId = crypto.randomUUID();
     return new Promise((resolve) => {

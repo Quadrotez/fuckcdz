@@ -8,3 +8,5 @@ button { border: 0; border-radius: 8px; padding: 10px 14px; background: #315fc1;
 button.secondary { background: #687386; }
 #summary { color: #526071; font: 14px system-ui, sans-serif; }
 pre { overflow: auto; padding: 16px; border: 1px solid #d9dfeb; border-radius: 10px; background: #111827; color: #d1e4ff; line-height: 1.45; white-space: pre-wrap; }
+
+.filters { display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin:18px 0; font:14px system-ui,sans-serif; } .filters label { display:grid; gap:5px; } .filters input { padding:8px; border:1px solid #cbd5e1; border-radius:7px; } html.dark { color-scheme:dark; } html.dark body { background:#111827; color:#e5e7eb; } html.dark #summary { color:#aab7ca; } html.dark .warning { background:#25324a; color:#cbd5e1; } html.dark .filters input { background:#0f172a; color:#e5e7eb; border-color:#475569; }

@@ -8,13 +8,13 @@
 </head>
 <body>
   <main>
-    <header><div class="brand-row"><img class="brand-icon" src="icons/icon-48.png" alt=""><span class="brand">FuckCDZ</span><button id="settings" class="settings-button" title="Настройки авторешения" aria-label="Настройки авторешения">⚙</button><button data-theme-toggle class="theme-toggle" type="button">☾</button></div><h1>Задания и тесты</h1><p id="status">Определение активной вкладки…</p></header>
+    <header><div class="brand-row"><img class="brand-icon" src="icons/icon-48.png" alt=""><span class="brand">FuckCDZ</span><span class="header-spacer"></span><button id="settings" class="icon-button" title="Настройки" aria-label="Открыть настройки">⚙</button><button data-theme-toggle class="icon-button" type="button" title="Сменить тему" aria-label="Сменить тему">☾</button></div><h1>Задания и тесты</h1><p id="status">Определение активной вкладки…</p></header>
     <section class="actions">
       <button id="scan">Собрать задания дневника</button>
       <button id="exam">Показать все задания теста</button>
       <button id="print">Печать / PDF</button>
       <button id="debug">Открыть debug-лог</button>
-      <button id="clear" class="danger">Очистить локальные данные</button>
+      <details class="maintenance"><summary>Обслуживание</summary><button id="clear" class="danger">Очистить локальные данные</button></details>
     </section>
     <p id="hint" class="hint"></p>
   </main>

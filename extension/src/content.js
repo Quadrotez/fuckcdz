@@ -74,6 +74,10 @@
   }
 
   api.runtime.onMessage.addListener((message) => {
+  if (message?.type === "REFRESH_EXAM_SNAPSHOT") {
+    location.reload();
+    return { ok: true };
+  }
     if (message?.type === "SCAN_PAGE") return scan();
   });
 

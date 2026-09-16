@@ -1,15 +1,18 @@
 const api = globalThis.browser ?? globalThis.chrome;
 let current = { version: 1, events: [] };
+let filtered = [];
 
 async function load() {
   const result = await api.runtime.sendMessage({ type: "GET_DEBUG_LOG" });
   current = result?.log || { version: 1, events: [] };
   document.querySelector("#summary").textContent = `Событий: ${current.events?.length || 0}. Последнее обновление: ${new Date().toLocaleString("ru-RU")}`;
-  document.querySelector("#preview").textContent = JSON.stringify(current, null, 2);
+  filtered = current.events || []; render();
 }
 
+function render() { document.querySelector("#summary").textContent = `Событий: ${filtered.length} из ${current.events?.length || 0}.`; document.querySelector("#preview").textContent = JSON.stringify({ ...current, events: filtered }, null, 2); }
+function rangeFilter() { const from = Date.parse(document.querySelector("#from").value || "") || -Infinity; const to = Date.parse(document.querySelector("#to").value || "") || Infinity; filtered = (current.events || []).filter((event) => { const time = Date.parse(event.timestamp || "") || 0; return time >= from && time <= to; }); render(); }
 function download() {
-  const blob = new Blob([JSON.stringify(current, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ ...current, events: filtered }, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -18,9 +21,10 @@ function download() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+document.querySelector("#apply-filter").addEventListener("click", rangeFilter);
 document.querySelector("#download").addEventListener("click", download);
 document.querySelector("#copy").addEventListener("click", async () => {
-  await navigator.clipboard.writeText(JSON.stringify(current, null, 2));
+  await navigator.clipboard.writeText(JSON.stringify({ ...current, events: filtered }, null, 2));
   document.querySelector("#summary").textContent = "JSON скопирован в буфер обмена.";
 });
 document.querySelector("#clear").addEventListener("click", async () => {
