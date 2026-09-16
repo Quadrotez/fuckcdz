@@ -24,7 +24,7 @@
   api.runtime.onMessage.addListener((message) => {
     if (message?.type === "REFRESH_EXAM_SNAPSHOT") {
       location.reload();
-      return { ok: true };
+      return new Promise((resolve) => setTimeout(() => resolve({ ok: true }), 2500));
     }
     if (message?.type !== "SUBMIT_ANSWER" && message?.type !== "COMPLETE_ATTEMPT") return undefined;
     const requestId = crypto.randomUUID();

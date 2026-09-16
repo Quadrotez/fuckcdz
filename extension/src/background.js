@@ -54,9 +54,15 @@ async function refreshLatestExam() {
     return { error: "Открой текущую попытку теста на uchebnik.mos.ru." };
   }
   try {
-    const response = await api.tabs.sendMessage(tab.id, { type: "REFRESH_EXAM_SNAPSHOT" });
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    return response?.error ? response : { ok: true };
+    const before = await getLatestExam();
+    await api.tabs.reload(tab.id);
+    const beforeCapturedAt = String(before?.capturedAt || "");
+    for (let attempt = 0; attempt < 16; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const latest = await getLatestExam();
+      if (latest?.sourceTabId === tab.id && String(latest.capturedAt || "") !== beforeCapturedAt) return { ok: true };
+    }
+    return { error: "Страница перезагрузилась, но новый snapshot теста не получен. Дождись загрузки попытки и повтори обновление." };
   } catch {
     return { error: "Не удалось обновить snapshot. Перезагрузи страницу теста и повтори попытку." };
   }

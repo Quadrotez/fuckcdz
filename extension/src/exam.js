@@ -42,6 +42,16 @@ function mathElement(latex, display = false) {
   span.textContent = normalizeMath(String(latex));
   return span;
 }
+function appendTextWithMath(parent, value) {
+  const text = String(value ?? "");
+  const pattern = /(\\\(|\\\[|\$\$?|\\begin\{math\})([\s\S]*?)(?:\\\)|\\\]|\$\$?|\\end\{math\})/g;
+  let cursor = 0; let match;
+  while ((match = pattern.exec(text))) {
+    if (match.index > cursor) parent.append(textNode(text.slice(cursor, match.index)));
+    parent.append(mathElement(match[2], match[1] === "\\[" || match[1] === "$$")); cursor = pattern.lastIndex;
+  }
+  if (cursor < text.length) parent.append(textNode(text.slice(cursor)));
+}
 function normalizeMath(value) {
   return value
     .replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, "($1)/($2)")
@@ -61,12 +71,12 @@ function normalizeMath(value) {
 function appendRich(parent, value) {
   if (value == null) return;
   if (Array.isArray(value)) { value.forEach((item) => appendRich(parent, item)); return; }
-  if (typeof value === "string" || typeof value === "number") { parent.append(textNode(value)); return; }
+  if (typeof value === "string" || typeof value === "number") { appendTextWithMath(parent, value); return; }
   if (!isObject(value)) return;
   const type = String(value.type || "");
   if (type.includes("math")) { parent.append(mathElement(value.content ?? value.text ?? "", Boolean(value.is_multiline))); return; }
   if (type.includes("table")) { parent.append(renderTableValue(value.table)); return; }
-  if (value.text) parent.append(textNode(value.text));
+  if (value.text) appendTextWithMath(parent, value.text);
   if (value.content != null) appendRich(parent, value.content);
 }
 function renderTableValue(table) {
@@ -102,7 +112,7 @@ function renderMedia(element) {
 }
 function appendOptionContent(parent, option) {
   if (!isObject(option)) { appendRich(parent, option); return; }
-  if (option.text) parent.append(textNode(option.text));
+  if (option.text) appendTextWithMath(parent, option.text);
   for (const content of Array.isArray(option.content) ? option.content : []) {
     const media = renderMedia(content);
     if (media) parent.append(media); else appendRich(parent, content);
@@ -185,7 +195,7 @@ function renderMatch(container, task) {
   const right = targets.length ? targets : options.slice(Math.ceil(options.length / 2));
   const values = state.answers[task.id] || {};
   const table = document.createElement("div"); table.className = "match-list";
-  left.forEach((source, index) => { const row = document.createElement("label"); row.className = "match-row"; const sourceNode = document.createElement("span"); appendRich(sourceNode, source); const select = document.createElement("select"); select.innerHTML = `<option value="">Выберите соответствие…</option>`; right.forEach((target, targetIndex) => { const option = document.createElement("option"); option.value = String(target.id ?? targetIndex); option.textContent = optionLabel(target); select.append(option); }); select.value = values[String(source.id ?? index)] || ""; select.addEventListener("change", () => { values[String(source.id ?? index)] = select.value; state.answers[task.id] = values; persistAnswers(); }); row.append(sourceNode, select); table.append(row); });
+  left.forEach((source, index) => { const row = document.createElement("label"); row.className = "match-row"; const sourceNode = document.createElement("span"); appendOptionContent(sourceNode, source); const select = document.createElement("select"); select.innerHTML = `<option value="">Выберите соответствие…</option>`; right.forEach((target, targetIndex) => { const option = document.createElement("option"); option.value = String(target.id ?? targetIndex); appendTextWithMath(option, optionLabel(target)); select.append(option); }); select.value = values[String(source.id ?? index)] || ""; select.addEventListener("change", () => { values[String(source.id ?? index)] = select.value; state.answers[task.id] = values; persistAnswers(); }); row.append(sourceNode, select); table.append(row); });
   container.append(table);
   const printOptions = document.createElement("div"); printOptions.className = "print-answer-options";
   printOptions.textContent = `Варианты соответствия: ${right.map((item, index) => `${index + 1}. ${optionLabel(item)}`).join("; ")}`;
@@ -451,7 +461,15 @@ function runAutoSolve() {
   })();
 }
 
-document.querySelector("#refresh").addEventListener("click", () => load());
+document.querySelector("#refresh").addEventListener("click", async () => {
+  const button = document.querySelector("#refresh"); button.disabled = true; button.textContent = "Обновляю…";
+  try {
+    const result = await api.runtime.sendMessage({ type: "REFRESH_LATEST_EXAM" });
+    if (result?.error) throw new Error(result.error);
+    await load();
+  } catch (error) { const notice = document.querySelector("#notice"); notice.hidden = false; notice.textContent = `Не удалось обновить snapshot: ${error.message}`; }
+  finally { button.disabled = false; button.textContent = "Обновить snapshot"; }
+});
 document.querySelector("#auto-solve").addEventListener("click", () => runAutoSolve());
 document.querySelector("#debug").addEventListener("click", () => api.runtime.sendMessage({ type: "OPEN_DEBUG" }));
 document.querySelector("#print").addEventListener("click", () => window.print());
@@ -462,7 +480,7 @@ document.querySelector("#finish").addEventListener("click", async () => {
   const button = document.querySelector("#finish"); button.disabled = true; button.textContent = "Завершаю…";
   const result = await api.runtime.sendMessage({ type: "COMPLETE_EXAM_ATTEMPT", payload: { challenge_id: challengeId } });
   button.disabled = false; button.textContent = result?.ok ? "Тестирование завершено" : "Подтвердить и завершить тестирование";
-  if (result?.ok) { const challengeId = String(state.snapshot?.url || "").match(/challenge\/(\d+)/)?.[1]; const results = document.querySelector("#results"); results.href = challengeId ? `https://uchebnik.mos.ru/webtests/exam/${challengeId}/results` : "https://uchebnik.mos.ru/"; results.hidden = false; }
+  if (result?.ok) { const challengeId = String(state.snapshot?.url || "").match(/challenge\/(\d+)/)?.[1]; const results = document.querySelector("#results"); if (challengeId) { results.href = `https://uchebnik.mos.ru/webtests/exam/${challengeId}/results`; results.hidden = false; } }
   else alert(`Не удалось завершить тест: ${result?.error || `HTTP ${result?.status || "неизвестно"}`}`);
 });
 document.querySelector("#copy").addEventListener("click", async () => { const text = [...document.querySelectorAll(".question")].map((node) => node.innerText).join("\n\n"); await navigator.clipboard.writeText(text); document.querySelector("#copy").textContent = "Скопировано"; setTimeout(() => { document.querySelector("#copy").textContent = "Копировать текст"; }, 1500); });
