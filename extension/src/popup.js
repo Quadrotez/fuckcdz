@@ -27,11 +27,7 @@ document.querySelector("#scan").addEventListener("click", () => run(async () => 
   if (result?.error) throw new Error(result.error);
   await send("OPEN_TASKS");
 }, "Задания собраны."));
-document.querySelector("#exam").addEventListener("click", () => run(async () => {
-  const result = await send("REFRESH_LATEST_EXAM");
-  if (result?.error) throw new Error(result.error);
-  await send("OPEN_EXAM");
-}, "Обновляю страницу теста и открываю все задания."));
+document.querySelector("#exam").addEventListener("click", () => run(() => send("OPEN_EXAM"), "Открываю все задания текущего теста."));
 document.querySelector("#debug").addEventListener("click", () => run(() => send("OPEN_DEBUG"), "Открываю debug-лог."));
 document.querySelector("#print").addEventListener("click", () => run(() => send("OPEN_EXAM_PRINT"), "Открываю диалог печати PDF."));
 document.querySelector("#clear").addEventListener("click", () => run(() => send("CLEAR_DEBUG_LOG"), "Локальные данные очищены."));
