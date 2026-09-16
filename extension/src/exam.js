@@ -564,7 +564,7 @@ document.querySelector("#finish").addEventListener("click", async () => {
   const button = document.querySelector("#finish"); button.disabled = true; button.textContent = "Завершаю…";
   const result = await api.runtime.sendMessage({ type: "COMPLETE_EXAM_ATTEMPT", payload: { challenge_id: challengeId } });
   button.disabled = false; button.textContent = result?.ok ? "Тестирование завершено" : "Подтвердить и завершить тестирование";
-  if (result?.ok) { const assignmentUrl = String(state.snapshot?.assignmentUrl || state.snapshot?.response?.assignment?.url || "").replace(/\/$/, ""); const results = document.querySelector("#results"); if (assignmentUrl) { results.href = `${assignmentUrl}/result`; results.hidden = false; } else alert("Тест завершён, но URL контекста результатов ещё не найден. Открой страницу МЭШ с результатами из истории попыток."); }
+  if (result?.ok) { const assignmentUrl = String(state.snapshot?.assignmentUrl || state.snapshot?.response?.assignment?.url || "").replace(/\/$/, ""); const results = document.querySelector("#results"); if (assignmentUrl) { results.href = assignmentUrl; results.hidden = false; } else alert("Тест завершён, но URL контекста результатов ещё не найден. Открой страницу МЭШ с результатами из истории попыток."); }
   else alert(`Не удалось завершить тест: ${result?.error || `HTTP ${result?.status || "неизвестно"}`}`);
 });
 document.querySelector("#copy").addEventListener("click", async () => { const text = [...document.querySelectorAll(".question")].map((node) => node.innerText).join("\n\n"); await navigator.clipboard.writeText(text); document.querySelector("#copy").textContent = "Скопировано"; setTimeout(() => { document.querySelector("#copy").textContent = "Копировать текст"; }, 1500); });
