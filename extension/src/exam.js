@@ -425,7 +425,11 @@ function buildSubmitPayload(task) {
   if (type === "answer/match") return value && Object.keys(value).length ? { "@answer_type": type, match: asSetMap(value) } : null;
   if (type === "answer/groups") return value && Object.keys(value).length ? { "@answer_type": type, groups: asSetMap(value) } : null;
   if (type === "answer/gap/text" || type === "answer/gap/match/text" || type === "answer/gap/text/input") return value && Object.keys(value).length ? { "@answer_type": type, answers: value } : null;
-  if (type === "answer/table") return value ? { "@answer_type": type, answer: value } : null;
+  if (type === "answer/table") {
+    if (!value || typeof value !== "object" || Array.isArray(value) || !Object.keys(value).length) return null;
+    const cells = Object.fromEntries(Object.entries(value).map(([row, columns]) => [String(row), Object.fromEntries(Object.entries(columns || {}).map(([column, cell]) => [String(column), Array.isArray(cell) ? cell.map(String) : [String(cell ?? "")]]))]));
+    return { "@answer_type": type, cells };
+  }
   return null;
 }
 async function submitTask(task, button, status) {
@@ -525,6 +529,11 @@ function normalizeImportedAnswer(task, value) {
       const option = options.find((candidate, index) => String(candidate?.id ?? index) === raw) || options.find((candidate) => normalizeAnswerText(optionLabel(candidate)) === normalizeAnswerText(raw));
       return [normalizedKey, option ? String(option.id ?? options.indexOf(option)) : raw];
     }));
+  }
+  if (type === "answer/table") {
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`для задания ${task.id} нужна таблица`);
+    const source = value.cells && typeof value.cells === "object" ? value.cells : value.answer && typeof value.answer === "object" ? value.answer : value;
+    return Object.fromEntries(Object.entries(source).map(([row, columns]) => [String(row), Object.fromEntries(Object.entries(columns || {}).map(([column, cell]) => [String(column), Array.isArray(cell) ? String(cell[0] ?? "") : String(cell ?? "")]))]));
   }
   return value;
 }
