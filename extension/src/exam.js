@@ -191,7 +191,9 @@ function renderMedia(element) {
 }
 function appendOptionContent(parent, option) {
   if (!isObject(option)) { appendRich(parent, option); return; }
-  if (option.text) appendTextWithMath(parent, option.text);
+  const hasPositions = Array.isArray(option.content) && option.content.some((item) => isObject(item) && Number.isFinite(Number(item.position)));
+  if (option.text && hasPositions) appendPositionedContent(parent, option.text, option.content);
+  else if (option.text) appendTextWithMath(parent, option.text);
   for (const content of Array.isArray(option.content) ? option.content : []) {
     const media = renderMedia(content);
     if (media) parent.append(media); else appendRich(parent, content);
@@ -203,8 +205,7 @@ function renderQuestion(parent, elements) {
     if (!isObject(element)) continue;
     const media = renderMedia(element); if (media) { wrapper.append(media); continue; }
     const block = document.createElement("div"); block.className = "content-block";
-    if (element.text) block.append(textNode(element.text));
-    if (element.content) appendRich(block, element.content);
+    appendRich(block, element);
     if (!block.textContent.trim() && !block.querySelector(".math, table")) continue;
     wrapper.append(block);
   }
