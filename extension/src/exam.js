@@ -205,7 +205,8 @@ function renderQuestion(parent, elements) {
     if (!isObject(element)) continue;
     const media = renderMedia(element); if (media) { wrapper.append(media); continue; }
     const block = document.createElement("div"); block.className = "content-block";
-    appendRich(block, element);
+    if (element.text && Array.isArray(element.content) && element.content.some((item) => isObject(item) && Number.isFinite(Number(item.position)))) appendPositionedContent(block, element.text, element.content);
+    else appendRich(block, element);
     if (!block.textContent.trim() && !block.querySelector(".math, table")) continue;
     wrapper.append(block);
   }
