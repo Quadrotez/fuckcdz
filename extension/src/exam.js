@@ -335,9 +335,19 @@ function renderTableAnswer(container, task) {
   if (options.length) renderSimpleOptions(container, { ...task, answer: { ...answer, options } }, false);
 }
 function gapBankOptions(position) { return position?.options && position.options.length ? position.options : null; }
+function gapPositionKey(position, index) { return String(position?.position_id ?? index); }
+function gapTextElement(task, positions) {
+  const elements = Array.isArray(task.question_elements) ? task.question_elements : [];
+  const textId = positions.find((position) => position.text_id)?.text_id;
+  return elements.find((item) => textId && item?.text_id === textId)
+    || elements.find((item) => item?.type === "content/text/identificational")
+    || elements.find((item) => typeof item?.text === "string" && item.text.includes("\n") && item.type !== "content/text")
+    || elements.find((item) => typeof item?.text === "string" && item.text.length > 100)
+    || elements.find((item) => typeof item?.text === "string");
+}
 function renderGap(container, task) {
-  const answer = task.answer || {}; const element = (task.question_elements || []).find((item) => typeof item?.text === "string" && item.text.length > 100) || task.question_elements?.[0]; const source = element?.text || ""; const positions = [...(answer.text_position || [])].map((item, index) => ({ ...item, index })).sort((a, b) => a.position - b.position); const body = document.createElement("div"); body.className = "gap-text"; let cursor = 0;
-  positions.forEach((position) => { body.append(textNode(source.slice(cursor, position.position))); const select = document.createElement("select"); select.className = "gap-slot"; select.dataset.slot = position.index; select.innerHTML = `<option value="">выберите</option>`; const localOptions = gapBankOptions(position); const options = localOptions || answer.options || []; options.forEach((option, optionIndex) => { const item = document.createElement("option"); item.value = String(option.id ?? optionIndex); item.textContent = optionLabel(option); select.append(item); }); const current = state.answers[task.id]?.[position.index]; if (current) select.value = current; select.addEventListener("change", () => { const values = state.answers[task.id] || {}; values[position.index] = select.value; state.answers[task.id] = values; persistAnswers(); }); body.append(select); cursor = position.position; });
+  const answer = task.answer || {}; const positions = [...(answer.text_position || [])].map((item, index) => ({ ...item, index })).sort((a, b) => a.position - b.position); const element = gapTextElement(task, positions); const source = element?.text || ""; const body = document.createElement("div"); body.className = "gap-text"; let cursor = 0;
+  positions.forEach((position) => { const key = gapPositionKey(position, position.index); body.append(textNode(source.slice(cursor, position.position))); const localOptions = gapBankOptions(position); const options = localOptions || answer.options || []; const picker = createRichSelect(options.map((option, optionIndex) => ({ value: String(option.id ?? optionIndex), option })), state.answers[task.id]?.[key], "выберите", (value) => { const values = state.answers[task.id] || {}; values[key] = value; state.answers[task.id] = values; persistAnswers(); }); picker.classList.add("gap-picker"); picker.dataset.slot = key; body.append(picker); cursor = position.position; });
   body.append(textNode(source.slice(cursor))); container.append(body);
   const bankOptions = answer.options?.length ? answer.options : positions.flatMap((position) => position?.options || []);
   if (bankOptions.length) { const bank = document.createElement("div"); bank.className = "option-bank"; bankOptions.forEach((option, index) => { const chip = document.createElement("span"); chip.className = "chip"; chip.textContent = optionLabel(option); chip.title = "Выберите этот вариант в поле выше"; chip.draggable = true; chip.addEventListener("dragstart", (event) => { event.dataTransfer.setData("text/plain", String(option.id ?? index)); }); bank.append(chip); }); container.append(bank); }
@@ -346,12 +356,9 @@ function renderGapTextInput(container, task) {
   const answer = task.answer || {};
   const elements = Array.isArray(task.question_elements) ? task.question_elements : [];
   // У этого типа первое длинное поле — обычное условие, а пропуски принадлежат code/text element.
-  const element = elements.find((item) => typeof item?.text === "string" && item.text.includes("\n") && item.type !== "content/text")
-    || elements.find((item) => typeof item?.text === "string" && item.text.includes("\n"))
-    || elements.find((item) => typeof item?.text === "string" && item.type !== "content/text")
-    || elements.find((item) => typeof item?.text === "string");
-  const source = element?.text || "";
   const positions = [...(answer.text_position || [])].map((item, index) => ({ ...item, index })).sort((a, b) => a.position - b.position);
+  const element = gapTextElement(task, positions);
+  const source = element?.text || "";
   const values = state.answers[task.id] || {};
   const body = document.createElement("div"); body.className = "gap-text gap-code";
   let cursor = 0;
@@ -359,8 +366,9 @@ function renderGapTextInput(container, task) {
     body.append(textNode(source.slice(cursor, position.position)));
     const input = document.createElement("input"); input.type = "text"; input.className = "gap-input"; input.placeholder = "введите ответ";
     // expected_length в API МЭШ не является ограничением длины поля для этого типа.
-    input.value = values[position.index] || "";
-    input.addEventListener("input", () => { const next = state.answers[task.id] || {}; next[position.index] = input.value; state.answers[task.id] = next; persistAnswers(); });
+    const key = gapPositionKey(position, position.index);
+    input.value = values[key] || values[position.index] || "";
+    input.addEventListener("input", () => { const next = state.answers[task.id] || {}; next[key] = input.value; delete next[position.index]; state.answers[task.id] = next; persistAnswers(); });
     body.append(input); cursor = position.position;
   });
   body.append(textNode(source.slice(cursor))); container.append(body);
@@ -486,7 +494,17 @@ function normalizeImportedAnswer(task, value) {
   }
   if (type === "answer/gap/text" || type === "answer/gap/match/text" || type === "answer/gap/text/input") {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`для задания ${task.id} нужен объект полей`);
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [String(key), typeof item === "object" && item !== null ? String(item.id ?? item.value ?? "") : String(item ?? "")]));
+    const positions = Array.isArray(task.answer?.text_position) ? task.answer.text_position : [];
+    const options = Array.isArray(task.answer?.options) ? task.answer.options : [];
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => {
+      const positionIndex = Number.isInteger(Number(key)) ? Number(key) : -1;
+      const position = positions.find((candidate, index) => String(candidate?.position_id ?? index) === String(key)) || positions[positionIndex];
+      const normalizedKey = String(position?.position_id ?? key);
+      const raw = typeof item === "object" && item !== null ? String(item.id ?? item.value ?? item.text ?? "") : String(item ?? "");
+      if (type !== "answer/gap/match/text") return [normalizedKey, raw];
+      const option = options.find((candidate, index) => String(candidate?.id ?? index) === raw) || options.find((candidate) => normalizeAnswerText(optionLabel(candidate)) === normalizeAnswerText(raw));
+      return [normalizedKey, option ? String(option.id ?? options.indexOf(option)) : raw];
+    }));
   }
   return value;
 }
