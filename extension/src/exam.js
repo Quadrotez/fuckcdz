@@ -39,8 +39,18 @@ function mathElement(latex, display = false) {
   span.className = `math ${display ? "math-display" : ""}`;
   span.setAttribute("role", "math");
   span.title = String(latex);
-  span.textContent = normalizeMath(String(latex));
+  appendMathMarkup(span, normalizeMath(String(latex)));
   return span;
+}
+function appendMathMarkup(parent, value) {
+  const source = String(value);
+  const pattern = /(\^|_)(?:\(([^()]*)\)|([^\s,.;!?+={}\[\]()]+))/g;
+  let cursor = 0; let match;
+  while ((match = pattern.exec(source))) {
+    if (match.index > cursor) parent.append(textNode(source.slice(cursor, match.index)));
+    const mark = document.createElement(match[1] === "^" ? "sup" : "sub"); mark.textContent = match[2] ?? match[3]; parent.append(mark); cursor = pattern.lastIndex;
+  }
+  if (cursor < source.length) parent.append(textNode(source.slice(cursor)));
 }
 function appendTextWithMath(parent, value) {
   const text = String(value ?? "");
@@ -79,13 +89,23 @@ function normalizeMath(value) {
     .replace(/\\/g, "");
 }
 
+function mathSource(value) {
+  if (!isObject(value)) return null;
+  const type = String(value.type || value.atomic_type || value.kind || "").toLowerCase();
+  const source = value.latex ?? value.LaTeX ?? value.tex ?? value.formula ?? value.expression ?? value.math ?? value.mathml;
+  if (source != null && (/(latex|tex|math|formula|equation)/i.test(type) || typeof source === "string")) return source;
+  if (/(latex|tex|math|formula|equation)/i.test(type)) return value.content ?? value.text ?? value.value ?? null;
+  return null;
+}
+
 function appendRich(parent, value) {
   if (value == null) return;
   if (Array.isArray(value)) { value.forEach((item) => appendRich(parent, item)); return; }
   if (typeof value === "string" || typeof value === "number") { appendTextWithMath(parent, value); return; }
   if (!isObject(value)) return;
+  const formula = mathSource(value);
+  if (formula != null) { parent.append(mathElement(Array.isArray(formula) ? formula.map(contentToPlain).join("") : formula, Boolean(value.is_multiline || value.display || value.displayMode))); return; }
   const type = String(value.type || "");
-  if (type.includes("math")) { parent.append(mathElement(value.content ?? value.text ?? "", Boolean(value.is_multiline))); return; }
   if (type.includes("table")) { parent.append(renderTableValue(value.table)); return; }
   if (value.text) appendTextWithMath(parent, value.text);
   if (value.content != null) appendRich(parent, value.content);
