@@ -331,7 +331,25 @@ function renderGroups(container, task) {
 function renderTableAnswer(container, task) {
   const answer = task.answer || {}; const options = (answer.options || []).slice(); const tableOption = options.find((item) => item.content?.some?.((content) => content.type === "content/table"));
   if (tableOption) options.splice(options.indexOf(tableOption), 1);
-  if (tableOption) { const content = tableOption.content.find((item) => item.type === "content/table"); container.append(renderTableValue(content.table)); }
+  if (tableOption) {
+    const content = tableOption.content.find((item) => item.type === "content/table");
+    const table = content.table; const wrapper = document.createElement("div"); wrapper.className = "table-wrap";
+    const html = document.createElement("table"); const rows = Number(table?.rows || 0); const cols = Number(table?.columns || 0); const values = state.answers[task.id] && typeof state.answers[task.id] === "object" ? state.answers[task.id] : {};
+    for (let r = 0; r < rows; r += 1) {
+      const tr = document.createElement("tr");
+      for (let c = 0; c < cols; c += 1) {
+        const isInput = r > 0 && String(answer.cell_types?.[String(r)]?.[String(c)] || "").toUpperCase() === "MANUAL_INPUT";
+        const cell = document.createElement(r === 0 ? "th" : "td"); const label = table.cells?.[String(r)]?.[String(c)]?.join(" ") || "";
+        if (isInput) {
+          const input = document.createElement("input"); input.className = "table-answer-input"; input.type = "text"; input.inputMode = "numeric"; input.value = values[String(r)]?.[String(c)] ?? ""; input.setAttribute("aria-label", label || `Строка ${r}, столбец ${c}`);
+          input.addEventListener("input", () => { const next = state.answers[task.id] || {}; next[String(r)] = { ...(next[String(r)] || {}), [String(c)]: input.value }; state.answers[task.id] = next; persistAnswers(); }); cell.append(input);
+        } else cell.textContent = label;
+        tr.append(cell);
+      }
+      html.append(tr);
+    }
+    wrapper.append(html); container.append(wrapper);
+  }
   if (options.length) renderSimpleOptions(container, { ...task, answer: { ...answer, options } }, false);
 }
 function gapBankOptions(position) { return position?.options && position.options.length ? position.options : null; }
