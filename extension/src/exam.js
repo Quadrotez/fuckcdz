@@ -356,8 +356,37 @@ function renderTableAnswer(container, task) {
   if (options.length) renderSimpleOptions(container, { ...task, answer: { ...answer, options } }, false);
 }
 function renderImageGapAnswer(container, task) {
-  const answer = task.answer || {}; const image = answer.background_image; const positions = Array.isArray(answer.image_gaps_positions) ? answer.image_gaps_positions : []; const multiple = answer.gaps_selection_mode === "multiple"; const values = new Set(Array.isArray(state.answers[task.id]) ? state.answers[task.id].map(String) : []);
-  if (image) { const frame = document.createElement("div"); frame.className = "image-gap-frame"; const imageNode = document.createElement("img"); imageNode.className = "image-gap-background"; imageNode.loading = "eager"; imageNode.alt = image.description || "Фоновое изображение задания"; imageNode.src = image.relative_url || image.preview_url || ""; if (image.preview_url && image.preview_url !== image.relative_url) imageNode.addEventListener("error", () => { imageNode.src = image.preview_url; }, { once: true }); frame.append(imageNode); const overlay = document.createElement("div"); overlay.className = "image-gap-overlay"; positions.forEach((position, index) => { const button = document.createElement("button"); button.type = "button"; button.className = "image-gap-hotspot"; button.textContent = String(index + 1); const coords = position.coordinates || {}; button.style.left = `${Number(coords.x_coordinate) || 0}%`; button.style.top = `${Number(coords.y_coordinate) || 0}%`; button.dataset.positionId = String(position.position_id ?? index); button.setAttribute("aria-label", `Область ${index + 1}`); if (values.has(button.dataset.positionId)) button.classList.add("selected"); button.addEventListener("click", () => { const id = button.dataset.positionId; if (values.has(id)) { values.delete(id); button.classList.remove("selected"); } else if (multiple) { values.add(id); button.classList.add("selected"); } else { values.clear(); overlay.querySelectorAll(".image-gap-hotspot.selected").forEach((item) => item.classList.remove("selected")); values.add(id); button.classList.add("selected"); } state.answers[task.id] = [...values]; persistAnswers(); }); overlay.append(button); }); frame.append(overlay); container.append(frame); }
+  const answer = task.answer || {};
+  const image = answer.background_image;
+  const positions = Array.isArray(answer.image_gaps_positions) ? answer.image_gaps_positions : [];
+  const multiple = answer.gaps_selection_mode === "multiple";
+  const values = new Set(Array.isArray(state.answers[task.id]) ? state.answers[task.id].map(String) : []);
+  if (image) {
+    const frame = document.createElement("div"); frame.className = "image-gap-frame";
+    const imageNode = document.createElement("img"); imageNode.className = "image-gap-background"; imageNode.loading = "eager"; imageNode.alt = image.description || "Фоновое изображение задания";
+    const primaryUrl = image.relative_url || image.preview_url || ""; const fallbackUrl = image.preview_url && image.preview_url !== primaryUrl ? image.preview_url : "";
+    imageNode.src = primaryUrl;
+    let proxied = false;
+    imageNode.addEventListener("error", async () => {
+      if (fallbackUrl && imageNode.src !== fallbackUrl) { imageNode.src = fallbackUrl; return; }
+      if (proxied || !primaryUrl) return; proxied = true;
+      const result = await api.runtime.sendMessage({ type: "FETCH_MEDIA_DATA", url: primaryUrl });
+      if (result?.ok && result.dataUrl) imageNode.src = result.dataUrl;
+    });
+    frame.append(imageNode);
+    const overlay = document.createElement("div"); overlay.className = "image-gap-overlay";
+    positions.forEach((position, index) => {
+      const button = document.createElement("button"); button.type = "button"; button.className = "image-gap-hotspot"; button.textContent = String(index + 1);
+      const coords = position.coordinates || {}; button.style.left = `${Number(coords.x_coordinate) || 0}%`; button.style.top = `${Number(coords.y_coordinate) || 0}%`;
+      button.dataset.positionId = String(position.position_id ?? index); button.setAttribute("aria-label", `Область ${index + 1}`); if (values.has(button.dataset.positionId)) button.classList.add("selected");
+      button.addEventListener("click", () => { const id = button.dataset.positionId; if (values.has(id)) { values.delete(id); button.classList.remove("selected"); } else if (multiple) { values.add(id); button.classList.add("selected"); } else { values.clear(); overlay.querySelectorAll(".image-gap-hotspot.selected").forEach((item) => item.classList.remove("selected")); values.add(id); button.classList.add("selected"); } container.querySelectorAll(".image-gap-choice").forEach((item) => item.classList.toggle("selected", values.has(item.dataset.positionId))); state.answers[task.id] = [...values]; persistAnswers(); });
+      overlay.append(button);
+    });
+    frame.append(overlay); container.append(frame);
+    const choiceList = document.createElement("div"); choiceList.className = "image-gap-choice-list";
+    positions.forEach((position, index) => { const choice = document.createElement("button"); choice.type = "button"; choice.className = "image-gap-choice"; choice.textContent = `Область ${index + 1}`; choice.dataset.positionId = String(position.position_id ?? index); if (values.has(choice.dataset.positionId)) choice.classList.add("selected"); choice.addEventListener("click", () => { const hotspot = [...overlay.querySelectorAll(".image-gap-hotspot")].find((item) => item.dataset.positionId === choice.dataset.positionId); hotspot?.click(); choiceList.querySelectorAll(".image-gap-choice").forEach((item) => item.classList.toggle("selected", values.has(item.dataset.positionId))); }); choiceList.append(choice); });
+    container.append(choiceList);
+  }
   const print = document.createElement("div"); print.className = "print-answer-options image-gap-print-options"; print.textContent = `Области на изображении: ${positions.map((_, index) => `${index + 1}`).join(", ")}. Выбор: ${multiple ? "несколько областей" : "одна область"}.`; container.append(print);
   const hint = document.createElement("p"); hint.className = "muted"; hint.textContent = `Областей: ${positions.length}. Режим выбора: ${multiple ? "несколько" : "одна"}. Нажмите на область изображения или её номер.`; container.append(hint);
 }

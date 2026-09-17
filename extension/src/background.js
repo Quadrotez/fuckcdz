@@ -145,6 +145,13 @@ async function imageDataParts(imageUrls, maxKb) {
   }
   return parts;
 }
+async function fetchMediaData(url) {
+  const target = String(url || "").trim(); if (!/^https:\/\/uchebnik\.mos\.ru\//i.test(target)) throw new Error("Разрешены только media URL МЭШ.");
+  const response = await fetch(target, { credentials: "include" }); if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const blob = await response.blob(); if (blob.size > 8 * 1024 * 1024) throw new Error("Изображение слишком большое.");
+  const bytes = new Uint8Array(await blob.arrayBuffer()); let binary = ""; for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return { dataUrl: `data:${blob.type || "image/jpeg"};base64,${btoa(binary)}`, size: blob.size, contentType: blob.type || "image/jpeg" };
+}
 async function autoSolve(prompt, imageUrls) {
   const result = await api.storage.local.get("autoSolve"); const settings = result.autoSolve || {}; const config = providerConfig(settings);
   const content = [{ type: "text", text: String(prompt || "") }];
@@ -180,6 +187,7 @@ api.runtime.onMessage.addListener(async (message, sender) => {
   if (message?.type === "LIST_MODELS") { try { return await listProviderModels(); } catch (error) { return { ok: false, error: error?.message || String(error) }; } }
   if (message?.type === "TEST_PROVIDER") { try { return await testProviderConnection(); } catch (error) { return { ok: false, error: error?.message || String(error) }; } }
   if (message?.type === "AUTO_SOLVE") { try { return await autoSolve(message.prompt, message.imageUrls); } catch (error) { return { ok: false, error: error?.message || String(error) }; } }
+  if (message?.type === "FETCH_MEDIA_DATA") { try { return { ok: true, ...(await fetchMediaData(message.url)) }; } catch (error) { return { ok: false, error: error?.message || String(error) }; } }
   if (message?.type === "CLEAR_DEBUG_LOG") return api.storage.local.remove([DEBUG_KEY, "latestExam"]);
   return undefined;
 });
