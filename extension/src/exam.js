@@ -440,7 +440,13 @@ function buildSubmitPayload(task) {
   if (type === "answer/number") return value != null && String(value).trim() ? { "@answer_type": type, number: Number(value) } : null;
   if (["answer/multiple", "answer/order"].includes(type)) return Array.isArray(value) && value.length ? { "@answer_type": type, ids: value } : null;
   if (type === "answer/match") return value && Object.keys(value).length ? { "@answer_type": type, match: asSetMap(value) } : null;
-  if (type === "answer/groups") return value && Object.keys(value).length ? { "@answer_type": type, groups: asSetMap(value) } : null;
+  if (type === "answer/groups") {
+    if (!value || typeof value !== "object" || !Object.keys(value).length) return null;
+    const groups = (task.answer?.options || []).filter((item) => String(item?.type || "").includes("group"));
+    const grouped = Object.fromEntries(groups.map((group) => [String(group.id), []]));
+    Object.entries(value).forEach(([optionId, groupId]) => { const target = Array.isArray(groupId) ? groupId[0] : groupId; if (target != null && grouped[String(target)]) grouped[String(target)].push(String(optionId)); });
+    return { "@answer_type": type, groups: grouped };
+  }
   if (type === "answer/gap/text" || type === "answer/gap/match/text" || type === "answer/gap/text/input") return value && Object.keys(value).length ? { "@answer_type": type, answers: value } : null;
   if (type === "answer/gap/match/background/image/selection") {
     const ids = Array.isArray(value) ? value.map(String).filter(Boolean) : value && typeof value === "object" ? Object.keys(value).filter((key) => value[key]) : [];
@@ -532,7 +538,15 @@ function normalizeImportedAnswer(task, value) {
     return value.map((item) => String(item ?? "").trim()).filter(Boolean);
   }
   if (["answer/free", "answer/string"].includes(type)) return String(value ?? "");
-  if (type === "answer/match" || type === "answer/groups") {
+  if (type === "answer/groups") {
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`для задания ${task.id} нужен объект групп`);
+    const groups = (task.answer?.options || []).filter((item) => String(item?.type || "").includes("group")); const groupIds = new Set(groups.map((group) => String(group.id)));
+    const entries = Object.entries(value); const result = {};
+    entries.forEach(([key, items]) => { if (!groupIds.has(String(key))) return; for (const item of (Array.isArray(items) ? items : [items])) result[String(item?.id ?? item)] = String(key); });
+    if (Object.keys(result).length) return result;
+    return Object.fromEntries(entries.map(([key, item]) => [String(key), Array.isArray(item) ? String(item[0] ?? "") : String(item ?? "")]));
+  }
+  if (type === "answer/match") {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`для задания ${task.id} нужен объект соответствий`);
     const { sources, targets } = matchSides(task.answer || {});
     const resolve = (items, item) => {
