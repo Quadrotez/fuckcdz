@@ -13,8 +13,10 @@ const TYPE_HELP = {
   "answer/match": "Сопоставьте элементы левой и правой части. Для каждого элемента выберите соответствующую пару.",
   "answer/groups": "Распределите варианты по подходящим группам.",
   "answer/table": "Заполните ячейки таблицы или выберите подходящие значения.",
+  "answer/gap/match/background/image/selection": "Выберите области на изображении. Можно выбрать несколько областей, если это указано в условии.",
   "answer/gap/match/text": "Перетащите варианты в поля пропусков. В каждом поле должно оказаться подходящее слово или число.",
-  "answer/gap/text/input": "Введите ответы в текстовые поля внутри условия. Заполняйте поля по порядку слева направо."
+  "answer/gap/text/input": "Введите ответы в текстовые поля внутри условия. Заполняйте поля по порядку слева направо.",
+  "answer/inline/choice/single": "Выберите вариант в каждом пропуске текста."
 };
 
 function textNode(value) { return document.createTextNode(String(value)); }
@@ -352,6 +354,11 @@ function renderTableAnswer(container, task) {
   }
   if (options.length) renderSimpleOptions(container, { ...task, answer: { ...answer, options } }, false);
 }
+function renderImageGapAnswer(container, task) {
+  const answer = task.answer || {}; const image = answer.background_image; const positions = Array.isArray(answer.image_gaps_positions) ? answer.image_gaps_positions : []; const multiple = answer.gaps_selection_mode === "multiple"; const values = new Set(Array.isArray(state.answers[task.id]) ? state.answers[task.id].map(String) : []);
+  if (image) { const frame = document.createElement("div"); frame.className = "image-gap-frame"; const media = renderMedia(image); if (media) frame.append(media); const overlay = document.createElement("div"); overlay.className = "image-gap-overlay"; positions.forEach((position, index) => { const button = document.createElement("button"); button.type = "button"; button.className = "image-gap-hotspot"; button.textContent = String(index + 1); const coords = position.coordinates || {}; button.style.left = `${Number(coords.x_coordinate) || 0}%`; button.style.top = `${Number(coords.y_coordinate) || 0}%`; button.dataset.positionId = String(position.position_id ?? index); button.setAttribute("aria-label", `Область ${index + 1}`); if (values.has(button.dataset.positionId)) button.classList.add("selected"); button.addEventListener("click", () => { const id = button.dataset.positionId; if (multiple) { if (values.has(id)) { values.delete(id); button.classList.remove("selected"); } else { values.add(id); button.classList.add("selected"); } } else { values.clear(); overlay.querySelectorAll(".image-gap-hotspot.selected").forEach((item) => item.classList.remove("selected")); values.add(id); button.classList.add("selected"); } state.answers[task.id] = [...values]; persistAnswers(); }); overlay.append(button); }); frame.append(overlay); container.append(frame); }
+  const hint = document.createElement("p"); hint.className = "muted"; hint.textContent = `Областей: ${positions.length}. Режим выбора: ${multiple ? "несколько" : "одна"}. Нажмите на область изображения или её номер.`; container.append(hint);
+}
 function gapBankOptions(position) { return position?.options && position.options.length ? position.options : null; }
 function gapPositionKey(position, index) { return String(position?.position_id ?? index); }
 function gapTextElement(task, positions) {
@@ -417,6 +424,7 @@ function renderAnswer(container, task) {
   else if (type === "answer/match") renderMatch(container, task);
   else if (type === "answer/groups") renderGroups(container, task);
   else if (type === "answer/table") renderTableAnswer(container, task);
+  else if (type === "answer/gap/match/background/image/selection") renderImageGapAnswer(container, task);
   else if (type === "answer/gap/text/input") renderGapTextInput(container, task);
   else if (type === "answer/inline/choice/single") renderInlineChoice(container, task);
   else if (type === "answer/gap/match/text" || detectGapMatchType(task)) renderGap(container, task);
@@ -434,6 +442,10 @@ function buildSubmitPayload(task) {
   if (type === "answer/match") return value && Object.keys(value).length ? { "@answer_type": type, match: asSetMap(value) } : null;
   if (type === "answer/groups") return value && Object.keys(value).length ? { "@answer_type": type, groups: asSetMap(value) } : null;
   if (type === "answer/gap/text" || type === "answer/gap/match/text" || type === "answer/gap/text/input") return value && Object.keys(value).length ? { "@answer_type": type, answers: value } : null;
+  if (type === "answer/gap/match/background/image/selection") {
+    const ids = Array.isArray(value) ? value.map(String).filter(Boolean) : value && typeof value === "object" ? Object.keys(value).filter((key) => value[key]) : [];
+    return ids.length ? { "@answer_type": type, position_ids: ids } : null;
+  }
   if (type === "answer/table") {
     if (!value || typeof value !== "object" || Array.isArray(value) || !Object.keys(value).length) return null;
     const cells = Object.fromEntries(Object.entries(value).map(([row, columns]) => [String(row), Object.fromEntries(Object.entries(columns || {}).map(([column, cell]) => [String(column), Array.isArray(cell) ? cell.map(String) : [String(cell ?? "")]]))]));
@@ -459,14 +471,16 @@ async function submitTask(task, button, status) {
   return result;
 }
 function renderTask(task, index) {
-  const card = document.createElement("article"); card.className = "question"; card.id = `task-${task.id}`;
+  const card = document.createElement("article"); card.className = "question"; card.id = `task-${task.id}`; card.dataset.groupIndex = String(task.__groupIndex ?? 0); card.dataset.groupTaskIndex = String(task.__groupTaskIndex ?? 0);
   const head = document.createElement("div"); head.className = "question-head"; const title = document.createElement("h2"); title.textContent = `Задание ${index + 1}`; const type = document.createElement("span"); type.className = "type-pill"; type.textContent = task.answer?.type || "неизвестный тип"; head.append(title, type); card.append(head);
   const question = document.createElement("div"); const inlineType = task.answer?.type === "answer/inline/choice/single"; const gapType = /answer\/gap\//.test(String(task.answer?.type || "")); const questionElements = gapType || inlineType ? (task.question_elements || []).filter((element) => element?.type !== "content/text/identificational") : task.question_elements; renderQuestion(question, questionElements); card.append(question);
   const answer = document.createElement("section"); answer.className = "answer-area"; renderAnswer(answer, task);
   const footer = document.createElement("div"); footer.className = "submit-footer"; const button = document.createElement("button"); button.type = "button"; button.className = "primary submit-answer"; button.textContent = "Отправить ответ"; const status = document.createElement("span"); status.className = "submit-status"; button.addEventListener("click", () => submitTask(task, button, status).catch((error) => { button.disabled = false; status.className = "submit-status error"; status.textContent = String(error?.message || error); })); footer.append(button, status); answer.append(footer); card.append(answer);
   return card;
 }
-function getTasks(snapshot) { return (snapshot?.response?.challenge_test_groups || []).flatMap((group) => group.challenge_tasks || []).filter((task) => task && typeof task === "object").sort((a, b) => (a.task_order ?? 0) - (b.task_order ?? 0)); }
+function getTasks(snapshot) {
+  return (snapshot?.response?.challenge_test_groups || []).flatMap((group, groupIndex) => (group.challenge_tasks || []).map((task, taskIndex) => task && typeof task === "object" ? { ...task, __groupIndex: groupIndex, __groupTaskIndex: taskIndex } : null)).filter(Boolean);
+}
 function persistAnswers() { if (!state.snapshot?.response?.challenge_attempt_id) return; const all = JSON.parse(localStorage.getItem(ANSWERS_KEY) || "{}"); all[state.snapshot.response.challenge_attempt_id] = state.answers; localStorage.setItem(ANSWERS_KEY, JSON.stringify(all)); }
 function restoreAnswers() { const id = state.snapshot?.response?.challenge_attempt_id; if (!id) return {}; const all = JSON.parse(localStorage.getItem(ANSWERS_KEY) || "{}"); return all[id] || {}; }
 function withoutAnswerKeys(value) {
@@ -545,6 +559,12 @@ function normalizeImportedAnswer(task, value) {
       return [normalizedKey, option ? String(option.id ?? options.indexOf(option)) : raw];
     }));
   }
+  if (type === "answer/gap/match/background/image/selection") {
+    const raw = Array.isArray(value) ? value : value?.position_ids || value?.ids || [];
+    if (!Array.isArray(raw)) throw new Error(`для задания ${task.id} нужен массив position_id`);
+    const valid = new Set((task.answer?.image_gaps_positions || []).map((item, index) => String(item?.position_id ?? index)));
+    return raw.map((item) => String(item?.position_id ?? item?.id ?? item)).filter((id) => valid.has(id));
+  }
   if (type === "answer/table") {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`для задания ${task.id} нужна таблица`);
     const source = value.cells && typeof value.cells === "object" ? value.cells : value.answer && typeof value.answer === "object" ? value.answer : value;
@@ -608,8 +628,9 @@ async function load() {
 function buildAutoSolvePrompt() {
   const payload = exportPayload(); payload.answers = {};
   const blankAnswer = (type) => {
-    if (type === "answer/multiple" || type === "answer/order" || type === "answer/string/multiple") return [];
-    if (type === "answer/match" || type === "answer/groups" || type === "answer/gap/text/input") return {};
+    if (type === "answer/multiple" || type === "answer/order" || type === "answer/string/multiple" || type === "answer/gap/match/background/image/selection") return [];
+    if (type === "answer/match" || type === "answer/groups" || type === "answer/gap/text/input" || type === "answer/inline/choice/single") return {};
+    if (type === "answer/table") return {};
     if (type === "answer/number") return null;
     return "";
   };
