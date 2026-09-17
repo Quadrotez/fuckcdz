@@ -2,7 +2,7 @@
   "name": "FuckCDZ",
   "description": "Собирает задания с открытой страницы МЭШ и показывает их в едином интерфейсе.",
   "author": "Quadrotez",
-  "version": "1.3.7",
+  "version": "1.3.8",
   "manifest_version": 3,
   "icons": {
     "16": "icons/icon-16.png",
