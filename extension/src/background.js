@@ -49,12 +49,15 @@ async function openDebug() {
 }
 
 async function refreshLatestExam() {
-  const [tab] = await queryActiveTab();
+  const stored = await getLatestExam();
+  const [activeTab] = await queryActiveTab();
+  const tab = stored?.sourceTabId ? { id: stored.sourceTabId, url: stored.url } : activeTab;
   if (!tab?.id || !/^https:\/\/(?:www\.)?uchebnik\.mos\.ru\//.test(tab.url || "")) {
     return { error: "Открой текущую попытку теста на uchebnik.mos.ru." };
   }
   try {
     await api.tabs.reload(tab.id);
+    await new Promise((resolve) => setTimeout(resolve, 1500));
     return { ok: true, refreshing: true };
   } catch {
     return { error: "Не удалось обновить snapshot. Перезагрузи страницу теста и повтори попытку." };

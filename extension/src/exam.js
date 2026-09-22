@@ -634,7 +634,8 @@ function normalizeImportedAnswer(task, value) {
     return Object.fromEntries(raw.map((cell) => [`${cell.row}:${cell.column}`, String(cell.option_id ?? cell.id ?? cell.value ?? "")]).filter(([, optionId]) => optionId));
   }
   if (type === "answer/table") {
-    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`для задания ${task.id} нужна таблица`);
+    if (Array.isArray(value)) return Object.fromEntries(value.map((cell) => [String(cell.row), { [String(cell.column)]: String(cell.option_id ?? cell.value ?? "") }]));
+    if (!value || typeof value !== "object") throw new Error(`для задания ${task.id} нужна таблица`);
     const source = value.cells && typeof value.cells === "object" ? value.cells : value.answer && typeof value.answer === "object" ? value.answer : value;
     return Object.fromEntries(Object.entries(source).map(([row, columns]) => [String(row), Object.fromEntries(Object.entries(columns || {}).map(([column, cell]) => [String(column), Array.isArray(cell) ? String(cell[0] ?? "") : String(cell ?? "")]))]));
   }
@@ -684,8 +685,33 @@ async function applyImportedAnswers(next) {
 }
 async function importAnswers(file) { await applyImportedAnswers(parseImportedText(await file.text())); }
 async function importAnswersText(text) { await applyImportedAnswers(parseImportedText(text)); }
+function unwrapServerAnswer(task, value) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || !value["@answer_type"]) return value;
+  const type = task.answer?.type;
+  if (type === "answer/single") return value.id;
+  if (type === "answer/multiple" || type === "answer/order") return value.ids || [];
+  if (type === "answer/number") return Array.isArray(value.number) ? value.number[0] : value.number;
+  if (type === "answer/free" || type === "answer/string") return value.string ?? "";
+  if (type === "answer/string/multiple") return value.answers || [];
+  if (type === "answer/match") return value.match || {};
+  if (type === "answer/groups") return Object.fromEntries((value.groups || []).map((group) => [String(group.group_id), group.options_ids || []]));
+  if (type === "answer/table" || type === "answer/grid") return value.cells || [];
+  if (type === "answer/inline/choice/single") return value.text_position_answer || [];
+  if (type === "answer/gap/match/background/image/selection") return value.position_ids || [];
+  if (/^answer\/gap\//.test(type)) return value.answers || value;
+  return value;
+}
+function restoreServerAnswers(snapshot, localAnswers) {
+  const restored = { ...(localAnswers || {}) }; const errors = [];
+  for (const task of getTasks(snapshot)) {
+    if (task.user_answer == null) continue;
+    try { restored[String(task.id)] = normalizeImportedAnswer(task, unwrapServerAnswer(task, task.user_answer)); }
+    catch (error) { errors.push(`${task.id}: ${error.message}`); }
+  }
+  restoreServerAnswers.lastErrors = errors; return restored;
+}
 async function load() {
-  const result = await api.runtime.sendMessage({ type: "GET_LATEST_EXAM" }); state.snapshot = result?.exam; state.answers = restoreAnswers();
+  const result = await api.runtime.sendMessage({ type: "GET_LATEST_EXAM" }); state.snapshot = result?.exam; state.answers = restoreServerAnswers(state.snapshot, restoreAnswers());
   const notice = document.querySelector("#notice"); const container = document.querySelector("#questions"); container.replaceChildren(); notice.hidden = true;
   if (!state.snapshot?.response) { notice.hidden = false; notice.textContent = "Snapshot ещё не найден. Открой тест, начни попытку и дождись start-attempt."; return; }
   const groups = state.snapshot.response.challenge_test_groups || []; const tasks = getTasks(state.snapshot);
