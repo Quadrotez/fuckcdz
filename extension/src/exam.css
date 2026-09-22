@@ -87,6 +87,9 @@ table { width: 100%; border-collapse: collapse; }
 th, td { min-width: 110px; padding: 9px; border: 1px solid #cbd5e3; text-align: left; vertical-align: top; }
 th { background: #eef3ff; }
 .table-answer-input { width: 100%; min-width: 72px; padding: 7px 8px; border: 1px solid #91a4c1; border-radius: 6px; background: #fff; color: #18212f; font: inherit; text-align: center; }
+.grid-answer-wrap table { min-width: 720px; }
+.grid-picker { min-width: 150px; width: 100%; }
+.grid-picker .rich-select-trigger { min-height: 38px; }
 .image-gap-frame { position: relative; width: min(100%, 900px); margin: 12px auto; }
 .image-gap-frame .media-box { margin: 0; }
 .image-gap-frame .media-box img, .image-gap-background { display: block; width: 100%; max-height: none; margin: 0; border: 1px solid #dfe5ee; border-radius: 10px; object-fit: contain; }

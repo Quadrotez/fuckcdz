@@ -13,6 +13,7 @@ const TYPE_HELP = {
   "answer/match": "Сопоставьте элементы левой и правой части. Для каждого элемента выберите соответствующую пару.",
   "answer/groups": "Распределите варианты по подходящим группам.",
   "answer/table": "Заполните ячейки таблицы или выберите подходящие значения.",
+  "answer/grid": "Заполните каждую ячейку второй строки, выбирая подходящее слово для соответствующего столбца.",
   "answer/gap/match/background/image/selection": "Выберите области на изображении. Можно выбрать несколько областей, если это указано в условии.",
   "answer/gap/match/text": "Перетащите варианты в поля пропусков. В каждом поле должно оказаться подходящее слово или число.",
   "answer/gap/text/input": "Введите ответы в текстовые поля внутри условия. Заполняйте поля по порядку слева направо.",
@@ -355,6 +356,13 @@ function renderTableAnswer(container, task) {
   }
   if (options.length) renderSimpleOptions(container, { ...task, answer: { ...answer, options } }, false);
 }
+function renderGridAnswer(container, task) {
+  const answer = task.answer || {}; const cells = Array.isArray(answer.cells) ? answer.cells : []; const rows = Math.max(0, ...cells.map((cell) => Number(cell.row) || 0)); const columns = Math.max(0, ...cells.map((cell) => Number(cell.column) || 0)); const byPosition = new Map(cells.map((cell) => [`${cell.row}:${cell.column}`, cell])); const values = state.answers[task.id] && typeof state.answers[task.id] === "object" ? state.answers[task.id] : {};
+  const wrapper = document.createElement("div"); wrapper.className = "table-wrap grid-answer-wrap"; const table = document.createElement("table"); table.className = "answer-grid";
+  for (let row = 1; row <= rows; row += 1) { const tr = document.createElement("tr"); for (let column = 1; column <= columns; column += 1) { const cellData = byPosition.get(`${row}:${column}`) || {}; const isInput = cellData.type === "cell/input"; const cell = document.createElement(cellData.is_header || row === 1 ? "th" : "td"); if (isInput) { const options = Array.isArray(cellData.options) ? cellData.options : []; const picker = createRichSelect(options.map((option, index) => ({ value: String(option.id ?? index), option })), values[`${row}:${column}`], "Выберите…", (value) => { values[`${row}:${column}`] = value; state.answers[task.id] = values; persistAnswers(); }); picker.classList.add("grid-picker"); cell.append(picker); } else { const content = Array.isArray(cellData.content) ? cellData.content : []; if (content.length) content.forEach((item) => appendRich(cell, item)); } tr.append(cell); } table.append(tr); }
+  wrapper.append(table); container.append(wrapper);
+  const print = document.createElement("div"); print.className = "print-answer-options"; const inputCells = cells.filter((cell) => cell.type === "cell/input"); print.textContent = `Варианты по ячейкам: ${inputCells.map((cell) => `строка ${cell.row}, столбец ${cell.column}: ${(cell.options || []).map((option, index) => `${index + 1}. ${optionLabel(option)}`).join(", ")}`).join("; ")}`; container.append(print);
+}
 function renderImageGapAnswer(container, task) {
   const answer = task.answer || {};
   const image = answer.background_image;
@@ -457,6 +465,7 @@ function renderAnswer(container, task) {
   else if (type === "answer/match") renderMatch(container, task);
   else if (type === "answer/groups") renderGroups(container, task);
   else if (type === "answer/table") renderTableAnswer(container, task);
+  else if (type === "answer/grid") renderGridAnswer(container, task);
   else if (type === "answer/gap/match/background/image/selection") renderImageGapAnswer(container, task);
   else if (type === "answer/gap/text/input") renderGapTextInput(container, task);
   else if (type === "answer/inline/choice/single") renderInlineChoice(container, task);
@@ -484,6 +493,12 @@ function buildSubmitPayload(task) {
   if (type === "answer/gap/match/background/image/selection") {
     const ids = Array.isArray(value) ? value.map(String).filter(Boolean) : value && typeof value === "object" ? Object.keys(value).filter((key) => value[key]) : [];
     return ids.length ? { "@answer_type": type, position_ids: ids } : null;
+  }
+  if (type === "answer/grid") {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const inputCells = (task.answer?.cells || []).filter((cell) => cell.type === "cell/input");
+    const cells = inputCells.map((cell) => { const key = `${cell.row}:${cell.column}`; const optionId = value[key]; return optionId ? { column: Number(cell.column), row: Number(cell.row), group: Number(cell.group || 0), input_type: cell.input_type || "cell-input/single-select", option_id: String(optionId) } : null; }).filter(Boolean);
+    return cells.length ? { "@answer_type": type, cells } : null;
   }
   if (type === "answer/table") {
     if (!value || typeof value !== "object" || Array.isArray(value) || !Object.keys(value).length) return null;
@@ -612,6 +627,11 @@ function normalizeImportedAnswer(task, value) {
     const valid = new Set((task.answer?.image_gaps_positions || []).map((item, index) => String(item?.position_id ?? index)));
     return raw.map((item) => String(item?.position_id ?? item?.id ?? item)).filter((id) => valid.has(id));
   }
+  if (type === "answer/grid") {
+    const raw = Array.isArray(value) ? value : value?.cells || [];
+    if (!Array.isArray(raw)) throw new Error(`для задания ${task.id} нужен массив cells`);
+    return Object.fromEntries(raw.map((cell) => [`${cell.row}:${cell.column}`, String(cell.option_id ?? cell.id ?? cell.value ?? "")]).filter(([, optionId]) => optionId));
+  }
   if (type === "answer/table") {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`для задания ${task.id} нужна таблица`);
     const source = value.cells && typeof value.cells === "object" ? value.cells : value.answer && typeof value.answer === "object" ? value.answer : value;
@@ -677,7 +697,7 @@ function buildAutoSolvePrompt() {
   const blankAnswer = (type) => {
     if (type === "answer/multiple" || type === "answer/order" || type === "answer/string/multiple" || type === "answer/gap/match/background/image/selection") return [];
     if (type === "answer/match" || type === "answer/groups" || type === "answer/gap/text/input" || type === "answer/inline/choice/single") return {};
-    if (type === "answer/table") return {};
+    if (type === "answer/table" || type === "answer/grid") return {};
     if (type === "answer/number") return null;
     return "";
   };
