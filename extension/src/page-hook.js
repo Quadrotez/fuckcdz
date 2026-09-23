@@ -110,6 +110,9 @@
     }
     return result;
   }
+  function secureBaseFromUrl(raw) {
+    try { const url = new URL(String(raw), location.href); const marker = "/secure/"; const index = url.pathname.indexOf(marker); return index >= 0 ? url.pathname.slice(0, index + marker.length - 1) : null; } catch { return null; }
+  }
 
   async function responseBody(response) {
     try {
@@ -168,10 +171,11 @@
     const headers = { ...latestAnswerHeaders };
     const body = new FormData();
     body.append("request", new Blob([JSON.stringify(payload)], { type: "application/json" }), "blob");
-    emit({ kind: "command-start", command: "submit-answer", traceId, requestId, method: "POST", url: safeUrl("/webtests/exam/rest/secure/challenge/task/answer"), requestHeaders: authDiagnostics(headers), requestBody: await serializeBody(body) });
+    const url = `${latestSecureBase}/challenge/task/answer`;
+    emit({ kind: "command-start", command: "submit-answer", traceId, requestId, method: "POST", url: safeUrl(url), requestHeaders: authDiagnostics(headers), requestBody: await serializeBody(body) });
     try {
       delete headers["content-type"]; delete headers["content-length"];
-      const response = await nativeFetch("/webtests/exam/rest/secure/challenge/task/answer", { method: "POST", body, credentials: "include", headers });
+      const response = await nativeFetch(url, { method: "POST", body, credentials: "include", headers });
       const result = { ok: response.ok, status: response.status, statusText: response.statusText, durationMs: Math.round(performance.now() - started), requestHeaders: authDiagnostics(headers), responseHeaders: selectedResponseHeaders(response), response: await responseBody(response) };
       emit({ kind: "command-result", command: "submit-answer", traceId, requestId, ...result });
       commandResult(requestId, { ok: result.ok, status: result.status, durationMs: result.durationMs, traceId, responseHeaders: result.responseHeaders, response: result.response });
@@ -186,7 +190,7 @@
     const started = performance.now();
     const traceId = `${TRACE_SESSION}:complete:${requestId}`;
     const headers = { ...latestAnswerHeaders, "content-type": "application/json" };
-    const url = `/webtests/exam/rest/secure/challenge/${encodeURIComponent(challengeId)}/complete_attempt`;
+    const url = `${latestSecureBase}/challenge/${encodeURIComponent(challengeId)}/complete_attempt`;
     const body = JSON.stringify({ challenge_id: Number(challengeId) });
     emit({ kind: "command-start", command: "complete-attempt", traceId, requestId, method: "POST", url: safeUrl(url), requestHeaders: authDiagnostics(headers), requestBody: redact(JSON.parse(body)) });
     try {
@@ -210,6 +214,7 @@
 
   const nativeFetch = window.fetch;
   let latestAnswerHeaders = {};
+  let latestSecureBase = "/webtests/contests/rest/secure";
 
   window.fetch = async function debugFetch(input, init = {}) {
     const request = input instanceof Request ? input : null;
@@ -218,7 +223,8 @@
     let response;
     try {
       response = await nativeFetch.apply(this, arguments);
-      if (response.ok && /\/webtests\/exam\/rest\/secure\//.test(url)) {
+      if (response.ok && /\/webtests\/[^/]+\/rest\/secure\//.test(url)) {
+        latestSecureBase = secureBaseFromUrl(url) || latestSecureBase;
         latestAnswerHeaders = mergeHeaders(latestAnswerHeaders, authHeaders(init.headers || request?.headers));
       }
       emit({
@@ -271,7 +277,7 @@
       }
       const authBefore = authDiagnostics(latestAnswerHeaders);
       let refreshAuth = null;
-      if (request.url.includes("/webtests/exam/rest/secure/") && this.status >= 200 && this.status < 300) latestAnswerHeaders = mergeHeaders(latestAnswerHeaders, request.headers);
+      if (/\/webtests\/[^/]+\/rest\/secure\//.test(request.url) && this.status >= 200 && this.status < 300) { latestSecureBase = secureBaseFromUrl(request.url) || latestSecureBase; latestAnswerHeaders = mergeHeaders(latestAnswerHeaders, request.headers); }
       if (request.url.includes("/acl/api/session/v2/refresh") && this.status >= 200 && this.status < 300) {
         try {
           const session = this.responseType === "json" && this.response && typeof this.response === "object" ? this.response : JSON.parse(this.responseText || "{}");
