@@ -509,7 +509,7 @@ function buildSubmitPayload(task) {
   if (type === "answer/inline/choice/single") {
     if (!value || typeof value !== "object" || Array.isArray(value) || !Object.keys(value).length) return null;
     const positions = Array.isArray(task.answer?.text_position) ? task.answer.text_position : [];
-    const text_position_answer = Object.entries(value).map(([key, selected]) => { const position = positions.find((item, index) => String(item?.position_id ?? index) === String(key)); const id = selected && typeof selected === "object" ? selected.id ?? selected.value : selected; return { text_id: String(selected?.text_id ?? position?.text_id ?? ""), position_id: String(position?.position_id ?? key), id: String(id ?? "") }; }).filter((item) => item.id);
+    const text_position_answer = Object.entries(value).map(([key, selected]) => { const position = positions.find((item, index) => String(item?.position_id ?? index) === String(key)); const id = selected && typeof selected === "object" ? selected.id ?? selected.value : selected; const valid = position?.options?.some((option, index) => String(option?.id ?? index) === String(id)); return valid ? { text_id: String(selected?.text_id ?? position?.text_id ?? ""), position_id: String(position?.position_id ?? key), id: String(id) } : null; }).filter(Boolean);
     return text_position_answer.length ? { "@answer_type": type, text_position_answer } : null;
   }
   return null;
@@ -642,6 +642,20 @@ function normalizeImportedAnswer(task, value) {
   }
   if (type === "answer/inline/choice/single") {
     const positions = Array.isArray(task.answer?.text_position) ? task.answer.text_position : [];
+    const scalarCharacters = (items) => {
+      const normalized = items.map(([key, item]) => ({ key: String(key), id: String(item?.id ?? item?.value ?? item ?? "") }));
+      if (positions.length !== 1 || !normalized.length || !normalized.every((item) => /^\d+$/.test(item.key) && item.id.length === 1)) return null;
+      const ordered = normalized.sort((a, b) => Number(a.key) - Number(b.key));
+      if (!ordered.every((item, index) => Number(item.key) === index)) return null;
+      return ordered.map((item) => item.id).join("");
+    };
+    if (Array.isArray(value)) {
+      const recovered = scalarCharacters(value.map((item) => [item?.position_id, item]));
+      if (recovered) value = recovered;
+    } else if (value && typeof value === "object" && !Array.isArray(value) && positions.length === 1) {
+      const recovered = scalarCharacters(Object.entries(value));
+      if (recovered) value = recovered;
+    }
     if (typeof value === "string" || typeof value === "number") {
       if (positions.length !== 1) throw new Error(`для задания ${task.id} нужен объект position_id → option_id`);
       value = { [String(positions[0].position_id ?? 0)]: String(value) };
