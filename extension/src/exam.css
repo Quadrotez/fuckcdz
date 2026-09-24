@@ -136,6 +136,9 @@ th { background: #eef3ff; }
 
 .print-answer-options { display: none; }
 .print-slot-marker { display: none; }
+.attachment-link { display: block; margin-top: 8px; color: #b9d4ff; overflow-wrap: anywhere; font-size: 13px; }
+.media-box .attachment-link { margin-bottom: 4px; }
+@media print { .attachment-link { color: #000 !important; text-decoration: underline; } }
 
 html.dark { color-scheme:dark; --dark-bg:#111827; --dark-card:#1b2536; --dark-border:#334155; }
 html.dark, html.dark body { background:var(--dark-bg); color:#e5e7eb; }

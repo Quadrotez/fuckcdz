@@ -179,19 +179,63 @@ function renderTableValue(table) {
   wrapper.append(html); return wrapper;
 }
 function renderMedia(element) {
-  const url = element.relative_url || element.preview_url;
+  const url = attachmentUrl(element);
   if (!url) return null;
   const media = document.createElement("div"); media.className = "media-box";
   const type = `${element.atomic_type || ""} ${url}`.toLowerCase();
-  if (type.includes("video") || /\.(mp4|webm|ogg)(\?|$)/.test(type)) {
+  if (type.includes("file") && !/(\.(png|jpe?g|gif|webp|svg|mp4|webm|ogg|mp3|wav))(\?|$)/.test(type)) {
+    const link = document.createElement("a"); link.href = url; link.target = "_blank"; link.rel = "noreferrer"; link.textContent = `Файл доступен по ссылке: ${url}`; link.className = "attachment-link"; media.append(link);
+  } else if (type.includes("video") || /\.(mp4|webm|ogg)(\?|$)/.test(type)) {
     const video = document.createElement("video"); video.controls = true; video.preload = "metadata"; video.src = url; media.append(video);
   } else if (type.includes("audio") || /\.(mp3|wav|ogg)(\?|$)/.test(type)) {
     const audio = document.createElement("audio"); audio.controls = true; audio.src = url; media.append(audio);
   } else {
     const image = document.createElement("img"); image.loading = "lazy"; image.alt = element.description || "Иллюстрация к заданию"; image.src = url; media.append(image);
   }
+  if (!media.querySelector(".attachment-link") && element.atomic_type) { const link = document.createElement("a"); link.href = url; link.target = "_blank"; link.rel = "noreferrer"; link.textContent = `Файл доступен по ссылке: ${url}`; link.className = "attachment-link"; media.append(link); }
   if (element.description) { const caption = document.createElement("div"); caption.className = "media-caption"; caption.textContent = element.description; media.append(caption); }
   return media;
+}
+function attachmentUrl(element) {
+  const raw = element?.relative_url || element?.url || (String(element?.preview_url || "").startsWith("http") ? element.preview_url : "");
+  if (!raw) return "";
+  try { return new URL(raw, "https://uchebnik.mos.ru/").href; } catch { return ""; }
+}
+function collectAttachments(tasks) {
+  const result = []; const seen = new Set();
+  function visit(value, task, path = "") {
+    if (Array.isArray(value)) { value.forEach((item, index) => visit(item, task, `${path}.${index}`)); return; }
+    if (!isObject(value)) return;
+    const url = attachmentUrl(value); const kind = String(value.atomic_type || value.type || "").toLowerCase();
+    if (url && (value.atomic_type || /content\/(atomic|media)/.test(kind)) && !seen.has(url)) {
+      seen.add(url); result.push({ url, taskNumber: Number(task.task_order ?? 0) + 1, description: value.description || "", type: value.atomic_type || "file", path });
+    }
+    Object.entries(value).forEach(([key, item]) => { if (!/^(right_answer|reference_right_answer|user_answer)$/.test(key)) visit(item, task, `${path}.${key}`); });
+  }
+  tasks.forEach((task) => { visit(task.question_elements, task, `task-${task.id}.question`); visit(task.answer?.options, task, `task-${task.id}.options`); });
+  return result;
+}
+function safeFileName(value) { return String(value || "file").replace(/[\\/:*?"<>|\x00-\x1f]/g, "_").replace(/\s+/g, " ").trim().slice(0, 140) || "file"; }
+function attachmentFileName(item, index, contentType) {
+  const fromUrl = item.url.split("?")[0].split("/").pop() || "file"; const ext = fromUrl.includes(".") ? "" : `.${String(contentType || "application/octet-stream").split("/")[1] || "bin"}`;
+  return safeFileName(`task-${String(item.taskNumber).padStart(2, "0")}-${index + 1}-${fromUrl}${ext}`);
+}
+function crc32(bytes) {
+  let crc = 0xffffffff; for (const byte of bytes) { crc ^= byte; for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0); } return (crc ^ 0xffffffff) >>> 0;
+}
+function zipStore(entries) {
+  const encoder = new TextEncoder(); const chunks = []; const central = []; let offset = 0;
+  const u16 = (value) => new Uint8Array([value & 255, (value >>> 8) & 255]); const u32 = (value) => new Uint8Array([value & 255, (value >>> 8) & 255, (value >>> 16) & 255, (value >>> 24) & 255]);
+  entries.forEach(({ name, bytes }) => { const filename = encoder.encode(name); const crc = crc32(bytes); const local = new Uint8Array(30 + filename.length); local.set([80, 75, 3, 4], 0); local.set(u16(20), 4); local.set(u16(0x800), 6); local.set(u16(0), 8); local.set(u16(0), 10); local.set(u16(0), 12); local.set(u32(crc), 14); local.set(u32(bytes.length), 18); local.set(u32(bytes.length), 22); local.set(u16(filename.length), 26); local.set(u16(0), 28); local.set(filename, 30); chunks.push(local, bytes); const record = new Uint8Array(46 + filename.length); record.set([80, 75, 1, 2], 0); record.set(u16(20), 4); record.set(u16(20), 6); record.set(u16(0x800), 8); record.set(u16(0), 10); record.set(u16(0), 12); record.set(u16(0), 14); record.set(u16(0), 16); record.set(u32(crc), 16); record.set(u32(bytes.length), 20); record.set(u32(bytes.length), 24); record.set(u16(filename.length), 28); record.set(u16(0), 30); record.set(u16(0), 32); record.set(u16(0), 34); record.set(u16(0), 36); record.set(u32(0), 38); record.set(u32(offset), 42); record.set(filename, 46); central.push(record); offset += local.length; });
+  const directory = central.reduce((total, item) => total + item.length, 0); const end = new Uint8Array(22); end.set([80, 75, 5, 6], 0); end.set(u16(0), 4); end.set(u16(0), 6); end.set(u16(entries.length), 8); end.set(u16(entries.length), 10); end.set(u32(directory), 12); end.set(u32(offset), 16); end.set(u16(0), 20); return new Blob([...chunks, ...central, end], { type: "application/zip" });
+}
+function base64Bytes(value) { const binary = atob(value); const bytes = new Uint8Array(binary.length); for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index); return bytes; }
+async function exportAttachments() {
+  const attachments = collectAttachments(getTasks(state.snapshot)); if (!attachments.length) { alert("Во snapshot не найдено вложений."); return; }
+  const button = document.querySelector("#export-files"); button.disabled = true; button.textContent = `Скачивание 0/${attachments.length}…`; const entries = []; const errors = [];
+  for (let index = 0; index < attachments.length; index += 1) { const item = attachments[index]; button.textContent = `Скачивание ${index + 1}/${attachments.length}…`; const result = await api.runtime.sendMessage({ type: "FETCH_MEDIA_FILE", url: item.url }); if (result?.ok) entries.push({ name: attachmentFileName(item, index, result.contentType), bytes: base64Bytes(result.base64) }); else errors.push(`Задание ${item.taskNumber}: ${item.url} — ${result?.error || "ошибка скачивания"}`); }
+  button.disabled = false; button.textContent = "Экспорт файлов"; if (!entries.length) { alert(`Не удалось скачать вложения.\n\n${errors.join("\n")}`); return; }
+  const blob = zipStore(entries); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = `mesh-files-${new Date().toISOString().replace(/[:.]/g, "-")}.zip`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); if (errors.length) alert(`Архив создан, но пропущено файлов: ${errors.length}.\n\n${errors.join("\n")}`);
 }
 function appendOptionContent(parent, option) {
   if (!isObject(option)) { appendRich(parent, option); return; }
@@ -788,6 +832,7 @@ document.querySelector("#refresh").addEventListener("click", async () => {
 document.querySelector("#auto-solve").addEventListener("click", () => runAutoSolve());
 document.querySelector("#debug").addEventListener("click", () => api.runtime.sendMessage({ type: "OPEN_DEBUG" }));
 document.querySelector("#print").addEventListener("click", () => window.print());
+document.querySelector("#export-files").addEventListener("click", () => exportAttachments().catch((error) => alert(`Экспорт файлов не выполнен: ${error?.message || error}`)));
 document.querySelector("#finish").addEventListener("click", async () => {
   const challengeId = String(state.snapshot?.url || "").match(/challenge\/(\d+)/)?.[1];
   if (!challengeId) { alert("Не найден ID теста. Открой попытку заново."); return; }
