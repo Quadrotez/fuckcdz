@@ -572,6 +572,7 @@ function matchSides(answer) {
 }
 function normalizeImportedAnswer(task, value) {
   const type = task.answer?.type;
+  value = unwrapServerAnswer(task, value);
   if (type === "answer/single") {
     const id = findOptionId(task, value);
     if (id == null) throw new Error(`не найден вариант для задания ${task.id}`);
